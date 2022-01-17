@@ -70,7 +70,7 @@ export class Pathfinder {
             */
         }
     }
-    
+
     popHeap() {
         this.openNodes.splice(0, 1);
         if (this.openNodes.length > 1) {
@@ -105,4 +105,6 @@ export class Pathfinder {
             }
         }
     }
+
+    findPath(endX: num)
 }

@@ -1,8 +1,16 @@
 import { CostCalculator } from "./costCalculator";
-import { MovementEnum, Node, FakeVec3 } from "./constants";
+import { MovementEnum, Node, FakeVec3, dist3d, xyzxyzdist3d, xyzv3dist3d, xyzxyzequal, xyzfakev3equal } from "./constants";
 import { Bot } from "mineflayer";
 import { BotActions } from "./botActions";
+import { Vec3 } from "vec3";
 // import { Block } from "prismarine-block";
+
+export type Move = {
+    x: number,
+    y: number,
+    z: number,
+    move: MovementEnum
+}
 
 export class Pathfinder {
     private nodes: Node[] = [];
@@ -10,7 +18,19 @@ export class Pathfinder {
     private nodes3d: Node[][][] = [];
     private openNodes: Node[] = [];
 
-    constructor(private bot: Bot, private botActions: BotActions) {}
+    private bestNodeIndex: number = -1;
+
+    private moves: Node[] = [];
+    private lastPos: { x: number, y: number, z: number, move: number };
+
+    private chunkColumnsLoaded: boolean[][] = [];
+
+    private pathfinderTimer = 10;
+    private botSearchingPath = 10;
+
+    constructor(private bot: Bot, private botActions: BotActions) {
+        this.lastPos = { move: 0, ...this.bot.entity.position.floored() };
+    }
 
     //todo explain fcost and hcost
     addNode(
@@ -106,5 +126,263 @@ export class Pathfinder {
         }
     }
 
-    findPath(endX: num)
+    private refreshLoadedChunkColumns() {
+        this.chunkColumnsLoaded = [];
+        let leColumns = this.bot.world.getColumns();
+        for (const column of leColumns) {
+            let a = this.chunkColumnsLoaded[column.chunkZ];
+            if (!a) a = this.chunkColumnsLoaded[column.chunkZ] = [];
+            a[column.chunkX] = true;
+        }
+    }
+    private chunkAvailable(node: Node) {
+        const z = Math.floor(node.z / 16);
+        const x = Math.floor(node.x / 16);
+        let a = this.chunkColumnsLoaded[z];
+        return a && a[x];
+    }
+
+    findPath(endX: number, endZ: number, endY?: number, correction?: boolean, extension?: boolean) {
+        if (this.moves.length == 0) {
+            extension = false;
+        }
+        this.refreshLoadedChunkColumns();
+        this.bot.clearControlStates();
+        if (!extension) {
+            this.lastPos = {
+                move: 0,
+                x: Math.floor(this.bot.entity.position.x),
+                y: Math.floor(this.bot.entity.position.y),
+                z: Math.floor(this.bot.entity.position.z),
+            }
+        }
+        if (!correction && !extension) {
+            this.nodes = [];
+            this.nodes3d = [];
+            this.openNodes = [];
+            this.moves = [];
+        } else if (correction) {
+            this.nodes = [];
+            this.nodes3d = [];
+            this.openNodes = [];
+            // find best move
+            let bestOne: [index: number, distance: number] = [-1, Infinity];
+            for (let i = 0; i < this.moves.length; i++) {
+                const current = this.moves[i];
+                const x = Math.round(this.bot.entity.position.x);
+                const y = Math.floor(this.bot.entity.position.y);
+                const z = Math.round(this.bot.entity.position.z);
+                if (xyzv3dist3d(current, x, y - 1, z) < bestOne[1]) {
+                    bestOne = [
+                        i,
+                        xyzv3dist3d(current, x, y, z)
+                    ];
+                }
+            }
+            if (bestOne[0] + 1 < this.moves.length) {
+                this.moves.splice(bestOne[0] + 1, this.moves.length);
+            }
+            ({ x: endX, y: endY, z: endZ } = this.moves[bestOne[0]]);
+            // console.log(this.moves[bestOne[0]]);
+        } else if (extension) {
+            this.nodes = [];
+            this.openNodes = [];
+            this.nodes3d = [];
+            let bestOne = [0, Infinity];
+            for (let i = 0; i < this.moves.length; i++) {
+                const current = xyzv3dist3d(this.moves[i], endX, endY ?? this.moves[i].y, endZ);
+                if (current < bestOne[1])
+                    bestOne = [i, current];
+            }
+            bestOne[0] += 10;
+            if (bestOne[0] > this.moves.length - 6) {
+                bestOne[0] = this.moves.length - 6;
+            }
+            if (bestOne[0] >= 0) {
+                this.lastPos.move -= bestOne[0] + 1;
+                this.moves.splice(0, bestOne[0] + 1);
+            }
+            let foundPath = false;
+            if (!extension || this.moves.length == 0) {
+                this.addNode(undefined, 0, 0, Math.floor(this.bot.entity.position.x), Math.floor(this.bot.entity.position.y), Math.floor(this.bot.entity.position.z), MovementEnum.Init, [], false, false);
+            } else if (this.moves.length > 0) {
+                this.addNode(undefined, 0, 0, this.moves[0].x, this.moves[0].y, this.moves[0].z, MovementEnum.Init, [], false, false);
+            }
+            let attempts = 0;
+            let maxAttempts = 0;
+            let bestNode = this.nodes[0];
+            let findingPath = setInterval(() => {
+                this.bestNodeIndex = 0;
+                this.botSearchingPath = 10;
+                // if (!extension) {
+                //     botDestinationTimer = 30;
+                // }
+                let performanceStop = process.hrtime();
+                while (// todo understand wtf is going here with the time or whatever
+                    !foundPath &&
+                    attempts < 7500 &&
+                    (process.hrtime(performanceStop)[0] * 1000000000 + process.hrtime(performanceStop)[1]) / 1000000 < 40
+                ) {
+                    attempts++;
+                    this.bestNodeIndex = 0;
+                    bestNode = this.openNodes[0];
+                    this.popHeap();
+                    let bestNodeWasOpen = bestNode.open;
+                    bestNode.open = false;
+                    const chunkAvailable = this.chunkAvailable(bestNode);
+                    if (
+                        (bestNode.x == endX && bestNode.y == endY && bestNode.z == endZ) ||
+                        (endY === undefined && bestNode.x == endX && bestNode.z == endZ) ||
+                        !chunkAvailable
+                    ) {
+                        this.pathfinderTimer = 0;
+                        foundPath = true;
+                        // console.log(`Found path in ${attempts} attempts.`);
+                        let atHome = false;
+                        let steps = 0;
+                        let firstMoveIndex = this.moves.length - 1;
+                        let extender = [];
+                        // /*steps < 1000 && */ why was that here
+                        while (!atHome || (bestNode.parent != undefined)) {
+                            if (!extension) {
+                                this.moves.push(bestNode);
+                            } else {
+                                extender.push(bestNode);
+                            }
+                            if (correction) {
+                                // todo: fix
+                                // faulty code, gonna have to be commented for now
+                                // wasn't working in the original either
+                                // for (let i = 0; i < firstMoveIndex; i++) {
+                                // if (this.moves[i] == bestNode)
+                                // }
+                            } else if (extension) {
+                                for (let i = 0; i < this.moves.length; i++) {
+                                    if (xyzxyzequal(this.moves[i], extender[extender.length - 1])) {
+                                        extender.splice(extender.length - 1, 1);
+                                        i = this.moves.length;
+                                    }
+                                }
+                            }
+                            // console.log(`{x: ${bestNode.x}, y: ${bestNode.y}, z: ${bestNode.z}}`);
+                            bestNode = bestNode.parent!;
+                            steps++;
+                        }
+                        if (extension) {
+                            this.lastPos.move += extender.length;
+                            this.moves = extender.concat(this.moves);
+                        }
+                        // this.bot.chat(`I can be there in ${steps} steps.`);
+                    } else if (bestNodeWasOpen) {
+                        this.bot.chat(`/particle flame ${bestNode.x} ${bestNode.y} ${bestNode.z}`);
+                        if (chunkAvailable) {
+                            //walking
+                            this.validNode(bestNode, bestNode.x - 1, bestNode.y, bestNode.z, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x + 1, bestNode.y, bestNode.z, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x, bestNode.y, bestNode.z - 1, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x, bestNode.y, bestNode.z + 1, endX, endY!, endZ);
+                            //walking(diagnol)
+                            this.validNode(bestNode, bestNode.x - 1, bestNode.y, bestNode.z - 1, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x + 1, bestNode.y, bestNode.z - 1, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x - 1, bestNode.y, bestNode.z + 1, endX, endY!, endZ);
+                            this.validNode(bestNode, bestNode.x + 1, bestNode.y, bestNode.z + 1, endX, endY!, endZ);
+
+                            //Falling
+                            this.validNode(bestNode, bestNode.x, bestNode.y - 1, bestNode.z, endX, endY!, endZ);
+                            //Jumping
+                            this.validNode(bestNode, bestNode.x, bestNode.y + 1, bestNode.z, endX, endY!, endZ);
+                        }
+                    }
+                }
+            })
+        }
+    }
+
+    validNode(
+        node: Node,
+        x: number,
+        y: number,
+        z: number,
+        endX: number,
+        endY: number,
+        endZ: number | undefined,
+        // type?: undefined
+    ) {
+        let waterSwimCost = 4;
+        let placeBlockCost = 10;
+        let breakBlockCost = 0;
+        let breakBlockCost2 = 10;
+        if (this.pathfinderTimer > 20 * 4) {
+            breakBlockCost2 = 2
+        } else if (this.pathfinderTimer > 20 * 2) {
+            breakBlockCost2 = 5
+        }
+        if (y <= 60) {
+            // tweaking...
+        } else if (y >= 90) {
+            placeBlockCost = 3;
+        }
+        let ownerNodeUndefined = false;
+        let fcost = 0;
+        let legalMove = false;
+        let ughType = 0;
+        let brokenBlocks = [];
+        let brokeBlocks = false;
+        let placedBlocks = false;
+        let move;
+        let exploreCount, pastConforms, myExplorer;
+
+        if (Math.abs(node.x - x) == 1 && Math.abs(node.z - z) == 1 && node.y == y) {
+            // DIAGONAL WALK
+            move = MovementEnum.Diagonal;
+            ughType = 1;
+            fcost = 14;
+            if (
+                (blockWalk(this.bot, node.x, y, z) && blockAir(this.bot, node.x, y + 1, z)) ||
+                (blockWalk(this.bot, x, y, node.z) && blockAir(this.bot, x, y + 1, node.z) && blockWalk(this.bot, x, y, z) && blockAir(this.bot, x, y + 1, z) && blockStand(bot, x, y - 1, z, node))) {
+                legalMove = true
+            }
+            if (
+                (legalMove && blockCobweb(this.bot, node.x, y, z)) ||
+                blockCobweb(this.bot, node.x, y + 1, z) ||
+                blockCobweb(this.bot, x, y, node.z) ||
+                blockCobweb(this.bot, x, y + 1, node.z)
+            ) {
+                fcost += 45;
+                //console.log("Semi-Blocked move: " + x + ", " + y + ", " + z);
+            }
+            // todo go on
+        }
+    }
+}
+
+function blockWalk(bot: Bot, x: number, y: number, z: number, zeNode?: Node, waterAllowed?: boolean, lavaAllowed?: boolean,) {
+    let block = bot.blockAt(new Vec3(x, y, z));
+    let isTitle = false;
+    if ((block && !block.name.includes('cobweb') && !blockWater(bot, x, y, z)) || (waterAllowed && !blockLava(bot, x, y, z)) || lavaAllowed) {
+        if (
+            block && (
+                (block.shapes.length == 0) ||
+                (block.shapes.length == 1 && block.shapes[0].length == 6 && block.shapes[0][4] <= 0.2)
+            )
+        ) isTitle = true
+    }
+    if (zeNode) {
+        while (zeNode.parent) {
+            for (const brokenBlock of zeNode.brokenBlocks) {
+                if (xyzfakev3equal({ x, y, z }, brokenBlock)) {
+                    isTitle = false;
+                    break;
+                }
+            }
+            zeNode = zeNode.parent;
+        }
+    }
+    return isTitle
+}
+// todo change airtest
+const airTest = new Set([27, 26, 94, 98, 99, 574, 575]);
+function blockAir(bot: Bot, x: number, y: number, z: number): boolean {
+    const myBlock = bot.blockAt(new Vec3(x, y, z));
+    return !!(myBlock && !airTest.has(myBlock.type) && myBlock.shapes.length === 0);
 }

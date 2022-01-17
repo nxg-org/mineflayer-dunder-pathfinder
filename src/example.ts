@@ -1,0 +1,21 @@
+
+
+
+
+
+
+// export type MovementType = "init" | "walkCardinal" | "walkDiagonal" | "walkJumpCardinal" | "walkJumpDiagonal" | "sprintCardinal" | "sprintDiagonal" | "sprintJumpCardinal" | "sprintJumpDiagonal"
+
+
+
+
+
+
+
+
+
+
+
+
+
+

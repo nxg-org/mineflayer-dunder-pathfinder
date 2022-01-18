@@ -16,6 +16,6 @@ export class PathfinderBuilder {
         this.blockInfo = new BlockInfo(this.bot)
         this.calcInfo = new CostCalculator(this.bot, this.blockInfo)
         this.botActions = new BotActions(this.bot, this.calcInfo);
-        this.pathfinder = new Pathfinder(this.bot, this.botActions);
+        this.pathfinder = new Pathfinder(this.bot, this.botActions, this.blockInfo);
     }
 }

@@ -3,7 +3,7 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { Vec3 } from "vec3";
-import { BlockInfo } from "./blockInfo";
+import { BlockInfo } from "./blockInfoNew";
 import { getToolPriority, scaffoldBlocks, toolsForMaterials } from "./constants";
 import { CostCalculator } from "./costCalculator";
 import { cantGetBlockError, cantGetItemError, getTool } from "./util";

@@ -12,8 +12,8 @@ export namespace GoalFactory {
         else return new goals.EntityGoalDynamic(bot, target, wantedDistance);
     }
 
-    export function gotoEntity(bot: Bot, target: Entity, wantedDistance: number = 1) {
-        return new goals.StaticGoal(bot, target.position, wantedDistance);
+    export function gotoEntity(bot: Bot, target: Entity) {
+        return new goals.StaticGoal(bot, target.position);
     }
 
     export function gotoPos(bot: Bot, target: Vec3) {

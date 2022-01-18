@@ -1,16 +1,18 @@
 import { CostCalculator } from "./costCalculator";
-import { MovementEnum, Node, FakeVec3, dist3d, xyzxyzdist3d, xyzv3dist3d, xyzxyzequal, xyzfakev3equal } from "./constants";
+import { MovementEnum, FakeVec3, dist3d, xyzxyzdist3d, xyzv3dist3d, xyzxyzequal, xyzv3equal } from "./constants";
 import { Bot } from "mineflayer";
 import { BotActions } from "./botActions";
 import { Vec3 } from "vec3";
+import { BlockInfo } from "./blockInfo";
 // import { Block } from "prismarine-block";
+import {Node} from "./node"
 
 export type Move = {
-    x: number,
-    y: number,
-    z: number,
-    move: MovementEnum
-}
+    x: number;
+    y: number;
+    z: number;
+    move: MovementEnum;
+};
 
 export class Pathfinder {
     private nodes: Node[] = [];
@@ -21,33 +23,32 @@ export class Pathfinder {
     private bestNodeIndex: number = -1;
 
     private moves: Node[] = [];
-    private lastPos: { x: number, y: number, z: number, move: number };
+    private lastPos: { x: number; y: number; z: number; move: number };
 
     private chunkColumnsLoaded: boolean[][] = [];
 
     private pathfinderTimer = 10;
     private botSearchingPath = 10;
 
-    constructor(private bot: Bot, private botActions: BotActions) {
+    constructor(private bot: Bot, private botActions: BotActions, private blockInfo: BlockInfo) {
         this.lastPos = { move: 0, ...this.bot.entity.position.floored() };
     }
 
     //todo explain fcost and hcost
     addNode(
         parent: Node | undefined,
-        fcost: number,
+        gcost: number,
         hcost: number,
         x: number,
         y: number,
         z: number,
         moveType: MovementEnum,
+        availableBlocks: number,
         brokenBlocks: FakeVec3[],
-        brokeBlocks: boolean,
-        placedBlocks: boolean
     ) {
-        let parentFCost = parent ? fcost + parent.fcost : fcost;
+        let parentFCost = parent ? gcost + parent.gcost : gcost;
 
-        this.pushHeap(new Node(parent, fcost, hcost, x, y, z, true, moveType, brokenBlocks, brokeBlocks, placedBlocks));
+        this.pushHeap(new Node(parent, gcost, hcost, x, y, z, true, moveType, availableBlocks, brokenBlocks));
 
         let a = this.nodes3d[y];
         if (!a) a = this.nodes3d[y] = [];
@@ -63,8 +64,8 @@ export class Pathfinder {
             let current = this.openNodes.length - 1;
             let parent = Math.floor((current - 1) / 2);
             let parent_obj = this.openNodes[parent];
-            const node_ccost = node.ccost;
-            while (current > 0 && parent_obj.ccost > node_ccost) {
+            const node_ccost = node.fcost;
+            while (current > 0 && parent_obj.fcost > node_ccost) {
                 this.openNodes[current] = parent_obj;
                 this.openNodes[parent] = node;
                 current = parent;
@@ -102,14 +103,14 @@ export class Pathfinder {
             let childLeft = current * 2 + 1;
             let childRight = current * 2 + 2;
             while (true) {
-                let currentScore = this.openNodes[current].ccost;
+                let currentScore = this.openNodes[current].fcost;
                 let childLeftScore = Infinity;
                 if (this.openNodes.length - 1 >= childLeft) {
-                    childLeftScore = this.openNodes[childLeft].ccost;
+                    childLeftScore = this.openNodes[childLeft].fcost;
                 }
                 let childRightScore = Infinity;
                 if (this.openNodes.length - 1 >= childRight) {
-                    childRightScore = this.openNodes[childRight].ccost;
+                    childRightScore = this.openNodes[childRight].fcost;
                 }
                 if (childLeftScore >= currentScore && childRightScore >= currentScore) break;
                 let swapMeWith = childLeft;
@@ -136,8 +137,8 @@ export class Pathfinder {
         }
     }
     private chunkAvailable(node: Node) {
-        const z = Math.floor(node.z / 16);
-        const x = Math.floor(node.x / 16);
+        const z = Math.floor(node.z >> 4);
+        const x = Math.floor(node.x >> 4);
         let a = this.chunkColumnsLoaded[z];
         return a && a[x];
     }
@@ -154,7 +155,7 @@ export class Pathfinder {
                 x: Math.floor(this.bot.entity.position.x),
                 y: Math.floor(this.bot.entity.position.y),
                 z: Math.floor(this.bot.entity.position.z),
-            }
+            };
         }
         if (!correction && !extension) {
             this.nodes = [];
@@ -173,10 +174,7 @@ export class Pathfinder {
                 const y = Math.floor(this.bot.entity.position.y);
                 const z = Math.round(this.bot.entity.position.z);
                 if (xyzv3dist3d(current, x, y - 1, z) < bestOne[1]) {
-                    bestOne = [
-                        i,
-                        xyzv3dist3d(current, x, y, z)
-                    ];
+                    bestOne = [i, xyzv3dist3d(current, x, y, z)];
                 }
             }
             if (bestOne[0] + 1 < this.moves.length) {
@@ -191,8 +189,7 @@ export class Pathfinder {
             let bestOne = [0, Infinity];
             for (let i = 0; i < this.moves.length; i++) {
                 const current = xyzv3dist3d(this.moves[i], endX, endY ?? this.moves[i].y, endZ);
-                if (current < bestOne[1])
-                    bestOne = [i, current];
+                if (current < bestOne[1]) bestOne = [i, current];
             }
             bestOne[0] += 10;
             if (bestOne[0] > this.moves.length - 6) {
@@ -204,7 +201,18 @@ export class Pathfinder {
             }
             let foundPath = false;
             if (!extension || this.moves.length == 0) {
-                this.addNode(undefined, 0, 0, Math.floor(this.bot.entity.position.x), Math.floor(this.bot.entity.position.y), Math.floor(this.bot.entity.position.z), MovementEnum.Init, [], false, false);
+                this.addNode(
+                    undefined,
+                    0,
+                    0,
+                    Math.floor(this.bot.entity.position.x),
+                    Math.floor(this.bot.entity.position.y),
+                    Math.floor(this.bot.entity.position.z),
+                    MovementEnum.Init,
+                    [],
+                    false,
+                    false
+                );
             } else if (this.moves.length > 0) {
                 this.addNode(undefined, 0, 0, this.moves[0].x, this.moves[0].y, this.moves[0].z, MovementEnum.Init, [], false, false);
             }
@@ -218,7 +226,8 @@ export class Pathfinder {
                 //     botDestinationTimer = 30;
                 // }
                 let performanceStop = process.hrtime();
-                while (// todo understand wtf is going here with the time or whatever
+                while (
+                    // todo understand wtf is going here with the time or whatever
                     !foundPath &&
                     attempts < 7500 &&
                     (process.hrtime(performanceStop)[0] * 1000000000 + process.hrtime(performanceStop)[1]) / 1000000 < 40
@@ -243,7 +252,7 @@ export class Pathfinder {
                         let firstMoveIndex = this.moves.length - 1;
                         let extender = [];
                         // /*steps < 1000 && */ why was that here
-                        while (!atHome || (bestNode.parent != undefined)) {
+                        while (!atHome || bestNode.parent != undefined) {
                             if (!extension) {
                                 this.moves.push(bestNode);
                             } else {
@@ -294,7 +303,7 @@ export class Pathfinder {
                         }
                     }
                 }
-            })
+            });
         }
     }
 
@@ -305,7 +314,7 @@ export class Pathfinder {
         z: number,
         endX: number,
         endY: number,
-        endZ: number | undefined,
+        endZ: number | undefined
         // type?: undefined
     ) {
         let waterSwimCost = 4;
@@ -313,9 +322,9 @@ export class Pathfinder {
         let breakBlockCost = 0;
         let breakBlockCost2 = 10;
         if (this.pathfinderTimer > 20 * 4) {
-            breakBlockCost2 = 2
+            breakBlockCost2 = 2;
         } else if (this.pathfinderTimer > 20 * 2) {
-            breakBlockCost2 = 5
+            breakBlockCost2 = 5;
         }
         if (y <= 60) {
             // tweaking...
@@ -338,15 +347,20 @@ export class Pathfinder {
             ughType = 1;
             fcost = 14;
             if (
-                (blockWalk(this.bot, node.x, y, z) && blockAir(this.bot, node.x, y + 1, z)) ||
-                (blockWalk(this.bot, x, y, node.z) && blockAir(this.bot, x, y + 1, node.z) && blockWalk(this.bot, x, y, z) && blockAir(this.bot, x, y + 1, z) && blockStand(bot, x, y - 1, z, node))) {
-                legalMove = true
+                (this.blockInfo.canWalkOnBlock(node.x, y, z) && this.blockInfo.isAir(node.x, y + 1, z)) ||
+                (this.blockInfo.canWalkOnBlock(x, y, node.z) &&
+                    this.blockInfo.isAir(x, y + 1, node.z) &&
+                    this.blockInfo.canWalkOnBlock(x, y, z) &&
+                    this.blockInfo.isAir(x, y + 1, z) &&
+                    this.blockInfo.canStandOnBlock(x, y - 1, z, node))
+            ) {
+                legalMove = true;
             }
             if (
-                (legalMove && blockCobweb(this.bot, node.x, y, z)) ||
-                blockCobweb(this.bot, node.x, y + 1, z) ||
-                blockCobweb(this.bot, x, y, node.z) ||
-                blockCobweb(this.bot, x, y + 1, node.z)
+                (legalMove && this.blockInfo.isCobweb(node.x, y, z)) ||
+                this.blockInfo.isCobweb(node.x, y + 1, z) ||
+                this.blockInfo.isCobweb(x, y, node.z) ||
+                this.blockInfo.isCobweb(x, y + 1, node.z)
             ) {
                 fcost += 45;
                 //console.log("Semi-Blocked move: " + x + ", " + y + ", " + z);
@@ -354,35 +368,4 @@ export class Pathfinder {
             // todo go on
         }
     }
-}
-
-function blockWalk(bot: Bot, x: number, y: number, z: number, zeNode?: Node, waterAllowed?: boolean, lavaAllowed?: boolean,) {
-    let block = bot.blockAt(new Vec3(x, y, z));
-    let isTitle = false;
-    if ((block && !block.name.includes('cobweb') && !blockWater(bot, x, y, z)) || (waterAllowed && !blockLava(bot, x, y, z)) || lavaAllowed) {
-        if (
-            block && (
-                (block.shapes.length == 0) ||
-                (block.shapes.length == 1 && block.shapes[0].length == 6 && block.shapes[0][4] <= 0.2)
-            )
-        ) isTitle = true
-    }
-    if (zeNode) {
-        while (zeNode.parent) {
-            for (const brokenBlock of zeNode.brokenBlocks) {
-                if (xyzfakev3equal({ x, y, z }, brokenBlock)) {
-                    isTitle = false;
-                    break;
-                }
-            }
-            zeNode = zeNode.parent;
-        }
-    }
-    return isTitle
-}
-// todo change airtest
-const airTest = new Set([27, 26, 94, 98, 99, 574, 575]);
-function blockAir(bot: Bot, x: number, y: number, z: number): boolean {
-    const myBlock = bot.blockAt(new Vec3(x, y, z));
-    return !!(myBlock && !airTest.has(myBlock.type) && myBlock.shapes.length === 0);
 }

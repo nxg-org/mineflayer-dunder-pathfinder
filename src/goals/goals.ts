@@ -3,6 +3,8 @@ import { Bot } from "mineflayer";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
 import { PredictiveFunction } from "./goalTypes";
+import { Node } from "../node";
+import { distanceXZ } from "../util";
 
 
 export interface BaseGoalOptions {
@@ -11,24 +13,24 @@ export interface BaseGoalOptions {
 }
 
 export abstract class BaseGoal extends EventEmitter implements BaseGoalOptions {
-    constructor(public readonly bot: Bot, public readonly wantedDistance: number, public readonly dynamic: boolean, public readonly predictive: boolean) {
+    constructor(public readonly bot: Bot, public readonly dynamic: boolean, public readonly predictive: boolean) {
         super();
     }
 
     abstract get goalPos(): Vec3;
     abstract get goalPosRaw(): Vec3;
+
+    abstract cost(node: Node): number;
+    abstract goalReached(node: Node): boolean;
     
-    goalReached(): boolean {
-        return this.bot.entity.position.distanceTo(this.goalPos) <= this.wantedDistance
-    }
 
     predictiveFunction?: PredictiveFunction;
 }
 
 export class StaticGoal extends BaseGoal {
  
-    constructor(bot: Bot, public target: Vec3, wantedDistance: number = 1) {
-        super(bot, wantedDistance, false, false);
+    constructor(bot: Bot, public target: Vec3) {
+        super(bot, false, false);
     }
 
     get goalPos(): Vec3 {
@@ -38,22 +40,49 @@ export class StaticGoal extends BaseGoal {
        return this.target
     }
 
+    cost(node: Node) {
+        const {x, y, z} = this.goalPos
+        const dx = x - node.x
+        const dy = y - node.y
+        const dz = z - node.z
+        return distanceXZ(dx, dz) + Math.abs(dy)
+    }
+
+    goalReached(node: Node) {
+        const {x, y, z} = this.goalPos
+        return node.x === x && node.y === y && node.z === z
+    }
+
 }
 
 export class EntityGoalDynamic extends BaseGoal {
 
-    private initialGoal: Vec3;
-    constructor(bot: Bot, public target: Entity, wantedDistance: number = 1 ) {
-        super(bot, wantedDistance, false, false);
-        this.initialGoal = this.target.position
+    constructor(bot: Bot, public target: Entity, readonly wantedDistance: number = 1) {
+        super(bot,  false, false);
     }
 
     public get goalPos(): Vec3 {
-        return  this.initialGoal
+        return this.target.position
     }
 
     public get goalPosRaw(): Vec3 {
-        return this.initialGoal
+        return this.target.position
+    }
+
+    cost(node: Node) {
+        const {x, y, z} = this.goalPos
+        const dx = x - node.x
+        const dy = y - node.y
+        const dz = z - node.z
+        return distanceXZ(dx, dz) + Math.abs(dy)
+    }
+
+    goalReached(node: Node) {
+        const {x, y, z} = this.goalPos
+        const dx =  x - node.x
+        const dy = y - node.y
+        const dz = z - node.z
+        return (dx * dx + dy * dy + dz * dz) <= this.wantedDistance
     }
 }
 
@@ -63,14 +92,14 @@ export class EntityGoalPredictive extends BaseGoal {
     constructor(
         bot: Bot,
         public target: Entity,
-        wantedDistance: number = 1,
+        readonly wantedDistance: number = 1,
         public predictiveFunction: PredictiveFunction = (delta, pos, vel) => {
             const base = Math.round(Math.sqrt(delta.x ** 2 + delta.y ** 2 + delta.z ** 2));
             const tickCount = Math.round((base * 8) / Math.sqrt(base));
             return pos.plus(vel.scaled(isNaN(tickCount) ? 0 : tickCount));
         }
     ) {
-        super(bot, wantedDistance, true, true);
+        super(bot, true, true);
         this.bot.tracker.trackEntity(target);
     }
 
@@ -85,13 +114,29 @@ export class EntityGoalPredictive extends BaseGoal {
     public get goalPosRaw(): Vec3 {
         return this.target.position;
     }
+
+    cost(node: Node) {
+        const {x, y, z} = this.goalPos
+        const dx = x - node.x
+        const dy = y - node.y
+        const dz = z - node.z
+        return distanceXZ(dx, dz) + Math.abs(dy)
+    }
+
+    goalReached(node: Node) {
+        const {x, y, z} = this.goalPos
+        const dx =  x - node.x
+        const dy = y - node.y
+        const dz = z - node.z
+        return (dx * dx + dy * dy + dz * dz) <= this.wantedDistance
+    }
 }
 
 
 export class InverseGoal extends BaseGoal {
 
     constructor( protected goal: BaseGoal){
-        super(goal.bot, goal.wantedDistance, goal.dynamic, goal.predictive)
+        super(goal.bot, goal.dynamic, goal.predictive)
     }
     
     public get goalPos(): Vec3 {
@@ -102,7 +147,14 @@ export class InverseGoal extends BaseGoal {
         return this.goal.goalPosRaw
     }
 
-    goalReached(): boolean {
-        return !this.goal.goalReached()
+
+    cost(node: Node) {
+        return -this.goal.cost(node);
     }
+    
+    goalReached(node: Node): boolean {
+        return !this.goal.goalReached(node)
+    }
+
+
 }

@@ -2199,7 +2199,7 @@ bot.once("spawn", () => {
                 debugTimer = 0;
                 //console.log(JSON.stringify(lastPos) + "\n" + "\n" + JSON.stringify(movesToGo));
                 for (var i = 0; i < movesToGo.length; i++) {
-                    bot.chat("/particle flame " + movesToGo[i].x + " " + movesToGo[i].y + " " + movesToGo[i].z);
+                    // bot.chat("/particle flame " + movesToGo[i].x + " " + movesToGo[i].y + " " + movesToGo[i].z);
                 }
             }
             //console.log("e" + movesToGo.length + ", " + lastPos.currentMove);
@@ -2699,7 +2699,7 @@ bot.on("chat", function (username, message) {
                     lastPos.currentMove -= (bestOne[0] + 1);
                     movesToGo.splice(0, bestOne[0] + 1);
                 }
-                bot.chat("/particle spit " + movesToGo[0].x + " " + movesToGo[0].y + " " + movesToGo[0].z);
+                // bot.chat("/particle spit " + movesToGo[0].x + " " + movesToGo[0].y + " " + movesToGo[0].z);
             break;
             case "fixPath":
                 findPath(bot, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, true);

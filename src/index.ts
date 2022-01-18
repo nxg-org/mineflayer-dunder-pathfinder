@@ -1,5 +1,5 @@
 import { Bot } from "mineflayer";
-import { BlockInfo } from "./blockInfo";
+import { BlockInfo } from "./blockInfoNew";
 import { Pathfinder } from "./pathfinder";
 import { PathfinderBuilder } from "./wrapper";
 import tracker from "@nxg-org/mineflayer-tracker"

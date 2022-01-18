@@ -493,7 +493,7 @@ function addNode(
     y: number,
     z: number,
     moveType: string,
-    brokenBlocks: Block[],
+    brokenBlocks: number[][],
     brokeBlocks: boolean,
     placedBlocks?: boolean 
 ) {
@@ -554,7 +554,7 @@ function validNode(
     let exploreCount;
     let pastConforms;
     let myExplorer;
-
+    let failed;
     if (Math.abs(node.x - x) == 1 && Math.abs(node.z - z) == 1 && node.y == y) {
         //DIAGNOL WALK
         moveType = "walkDiag";
@@ -1016,8 +1016,8 @@ function validNode(
         //Parkour move
         let stepDir = { x: x - node.x, z: z - node.z };
 
-        let blockWaterCount = blockWater(bot, x, y, z) + blockWater(bot, x, y + 1, z);
-        let blockAirCount = blockAir(bot, x, y, z) + blockAir(bot, x, y + 1, z);
+        let blockWaterCount = Number(blockWater(bot, x, y, z)) + Number(blockWater(bot, x, y + 1, z));
+        let blockAirCount = Number(blockAir(bot, x, y, z)) + Number(blockAir(bot, x, y + 1, z));
 
         if (
             blockWaterCount == 2 ||
@@ -1217,7 +1217,6 @@ function validNode(
             (!blockSolid(bot, x, y + 2, node.z) && blockWalk(bot, x, y + 1, node.z, false, true, true))
         ) {
             let oldY = y;
-            let failed = false;
             let attempts = 0;
             while (
                 ((y > -1 && (y > oldY - pathfinderOptions.maxFall) && !pathfinderOptions.canClutch)) ||
@@ -1522,11 +1521,11 @@ function validNode(
             pastConforms = {
                 conforms: true,
                 x0: x - myExplorer.parent.x,
-                x1: node.x - myExplorer.parent.parent.x,
+                x1: node.x - myExplorer.parent.parent!.x,
                 y0: y - myExplorer.parent.y,
-                y1: node.y - myExplorer.parent.parent.y,
+                y1: node.y - myExplorer.parent.parent!.y,
                 z0: z - myExplorer.parent.z,
-                z1: node.z - myExplorer.parent.parent.z,
+                z1: node.z - myExplorer.parent.parent!.z,
             };
         }
         while (myExplorer.parent != undefined && exploreCount < 7) {
@@ -1893,7 +1892,7 @@ function findPath(bot: Bot, endX: number, endZ: number, endY?: number, correctio
     let foundPath = false;
     if (!extension || movesToGo.length == 0) {
         addNode(
-            false,
+            undefined,
             0,
             0,
             Math.floor(bot.entity.position.x),
@@ -1905,7 +1904,7 @@ function findPath(bot: Bot, endX: number, endZ: number, endY?: number, correctio
         );
     } else if (movesToGo.length > 0) {
         console.log("x: " + movesToGo[0].x + ", y: " + movesToGo[0].y + ", z: " + movesToGo[0].z + " " + movesToGo.length);
-        addNode(false, 0, 0, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, "start", [], false);
+        addNode(undefined, 0, 0, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, "start", [], false);
     }
     let attempts = 0;
     let maxAttempts = 0;
@@ -2003,7 +2002,7 @@ function findPath(bot: Bot, endX: number, endZ: number, endY?: number, correctio
                         }
                     }
                     console.log("x: " + bestNode.x + " y: " + bestNode.y + "z: " + bestNode.z);
-                    bestNode = bestNode.parent;
+                    bestNode = bestNode.parent!;
                     steps++;
                 }
                 if (extension) {
@@ -2076,7 +2075,7 @@ let botDigCTimer = 0;
 let holdWeapon = true;
 let lookAtNextDelay = 0;
 
-let huntTarget = 0;//This is set to a bot.players object. i.e. huntTarget = bot.players[targetName]. I have it set to 0 when empty but typescript doesn't like that
+let huntTarget: mineflayer.Player;//This is set to a bot.players object. i.e. huntTarget = bot.players[targetName]. I have it set to 0 when empty but typescript doesn't like that
 let huntMode = -1;
 let huntTrackTimer = 0;
 let onPath = false;
@@ -2103,8 +2102,8 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
     if (
         bot.entity.onGround ||
         bot.entity.isInWater ||
-        bot.entity.isInLava ||
-        (isSwim(myMove.mType) &&
+        (bot.entity as any).isInLava ||
+        (isSwim(myMove.mType as MoveType) &&
             myMove.y + 0.2 < bot.entity.position.y &&
             blockSolid(bot, myMove.x, myMove.y, myMove.z) &&
             dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.5) &&
@@ -2119,8 +2118,8 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
     } else if (
         bot.entity.onGround ||
         bot.entity.isInWater ||
-        bot.entity.isInLava ||
-        (isSwim(myMove.mType) &&
+        (bot.entity as any).isInLava ||
+        (isSwim(myMove.mType as MoveType) &&
             myMove.y + 1.2 < bot.entity.position.y &&
             blockSolid(bot, myMove.x, Math.floor(bot.entity.position.y - 0.2), myMove.z) &&
             dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.5) &&
@@ -2133,10 +2132,10 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
         botIsDigging = 2;
         console.log("DigDown FreeStyle");
     } else if (
-        (bot.entity.onGround || bot.entity.isInWater || bot.entity.isInLava) &
-            (bot.entity.position.y >= myMove.y - 0.25) &
+        (bot.entity.onGround || bot.entity.isInWater || (bot.entity as any).isInLava) &&
+            (bot.entity.position.y >= myMove.y - 0.25) &&
             (bot.entity.position.y <= myMove.y + 0.25) ||
-        (isSwim(myMove.mType) && !bot.targetDigBlock) /*&& botDigDelay <= 0*/
+        (isSwim(myMove.mType as MoveType) && !bot.targetDigBlock) /*&& botDigDelay <= 0*/
     ) {
         //console.log("DigForward?");
         if (blockSolid(bot, myMove.x, myMove.y + 1, myMove.z) && canDigBlock(bot, myMove.x, myMove.y + 1, myMove.z)) {
@@ -2162,10 +2161,10 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
             busyBuilding = true;
         }
     } else if (
-        (bot.entity.onGround || bot.entity.isInWater || bot.entity.isInLava) &
-            (bot.entity.position.y >= myMove.y - 1.25) &
+        (bot.entity.onGround || bot.entity.isInWater || (bot.entity as any).isInLava) &&
+            (bot.entity.position.y >= myMove.y - 1.25) &&
             (bot.entity.position.y <= myMove.y + 0.25) ||
-        (isSwim(myMove.mType) && !bot.targetDigBlock) /*&& botDigDelay <= 0*/
+        (isSwim(myMove.mType as MoveType) && !bot.targetDigBlock) /*&& botDigDelay <= 0*/
     ) {
         //console.log("DigForward?");
         if (
@@ -2207,7 +2206,7 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
         }
     } else if (myMove.mType == "goUp") {
         if (
-            (bot.entity.onGround || bot.entity.isInWater || bot.entity.isInLava) &&
+            (bot.entity.onGround || bot.entity.isInWater || (bot.entity as any).isInLava) &&
             blockSolid(bot, myMove.x, myMove.y + 1, myMove.z) &&
             canDigBlock(bot, myMove.x, myMove.y + 1, myMove.z)
         ) {
@@ -2241,10 +2240,10 @@ let takeCareOfBlock = function (myMove: { mType: string; y: number; x: number; z
         }
     }
     if (
-        /*!botIsDigging &&*/ !isSwim(myMove.mType) &&
+        /*!botIsDigging &&*/ !isSwim(myMove.mType as MoveType) &&
         !bot.targetDigBlock &&
         !blockStand(bot, myMove.x, myMove.y - 1, myMove.z) &&
-        (myMove.y == lastPos.y) &
+        (myMove.y == lastPos.y) &&
             (dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.5)) /*|
                 myMove.y != lastPos.y & dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= dist3d(0, 0, 0, 3, 3, 3)*/
     ) {
@@ -2287,11 +2286,11 @@ let botShiftTimer = 2;
 bot.once("spawn", () => {
     console.log("Success! Say goto <player, me, coords> to pathfind");
     console.log(bot.heldItem);
-    if (bot.heldItem && bot.heldItem.nbt && bot.heldItem.nbt.value && bot.heldItem.nbt.value.LodestonePos) {
-        console.log(JSON.stringify(bot.heldItem.nbt.value.LodestonePos));
+    if (bot.heldItem && bot.heldItem.nbt && bot.heldItem.nbt.value && (bot.heldItem.nbt.value as any).LodestonePos) {
+        console.log(JSON.stringify((bot.heldItem.nbt.value as any).LodestonePos));
     }
     //console.log(bot.physics.playerHeight);//playerHalfWidth
-    bot.physics.playerHalfWidth = 0.3001;
+    (bot.physics as any).playerHalfWidth = 0.3001;
     //bot.physics.stepHeight = 0.15;
     //console.log(bot.physics.playerHalfWidth);
     bot.chat("Success! Say goto <player, me, coords> to pathfind");
@@ -2324,8 +2323,8 @@ bot.once("spawn", () => {
             }
         }
         holdWeapon = true;
-        bot.physics.waterInertia = 0.8;
-        bot.physics.waterGravity = 0.005;
+        (bot.physics as any).waterInertia = 0.8;
+        (bot.physics as any).waterGravity = 0.005;
         if (
             (blockWater(bot, Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z)) &&
                 blockWater(
@@ -2337,8 +2336,8 @@ bot.once("spawn", () => {
             (swimmingFast && pathfinderOptions.sprint && shouldSwimFast)
         ) {
             swimmingFast = true;
-            bot.physics.waterInertia = 0.9;
-            bot.physics.waterGravity = 0.001;
+            (bot.physics as any).waterInertia = 0.9;
+            (bot.physics as any).waterGravity = 0.001;
         }
         shouldSwimFast = true;
         if (!bot.entity.onGround) {
@@ -2422,6 +2421,8 @@ bot.once("spawn", () => {
         }
 
         //extend the path when near the end of a path that hasn't reached the goal yet due to chunk borders
+        
+        if (!movesToGo[0]) {} else
         if (
             (!huntTarget &&
                 botSearchingPath <= 0 &&
@@ -2429,14 +2430,14 @@ bot.once("spawn", () => {
                 movesToGo.length > 0 &&
                 movesToGo.length <= 10 &&
                 movesToGo[0].x != botGoal.x) ||
-            (movesToGo[0].y != botGoal.y) & (botGoal.y != "no") ||
+            (movesToGo[0].y != botGoal.y) && (botGoal.y != "no" as any as number) ||
             movesToGo[0].z != botGoal.z
         ) {
             console.log("Extending path through chunks...");
-            if (botGoal.y != "no") {
+            if (botGoal.y != "no" as any as number) {
                 findPath(bot, Math.floor(botGoal.x), Math.round(botGoal.y), Math.floor(botGoal.z), false, true); //Extending path here. "moveType" is not defined, line 1471
             } else {
-                findPath(bot, Math.floor(botGoal.x), "no", Math.floor(botGoal.z), false, true); //Extending path here. "moveType" is not defined, line 1471
+                findPath(bot, Math.floor(botGoal.x), "no" as any as number, Math.floor(botGoal.z), false, true); //Extending path here. "moveType" is not defined, line 1471
             }
         } else if (movesToGo.length > 0 && movesToGo.length <= 10) {
             //console.log("searching: " + botSearchingPath + ", botGoal: " + JSON.stringify(botGoal) + ", movesToGo: " + movesToGo.length + ", movesToGo[0]: " + JSON.stringify(movesToGo[0]));
@@ -2493,9 +2494,9 @@ bot.once("spawn", () => {
         let botSpeed = Math.sqrt(bot.entity.velocity.x * bot.entity.velocity.x + bot.entity.velocity.z * bot.entity.velocity.z);
         if (bot.entity.velocity.y < -0.3518) {
             //console.log("uh oh! " + bot.entity.velocity.y);
-            let clutchCanidates = [false, false, false, false];
+            let clutchCanidates: (Block | null | false)[] = [false, false, false, false];
             let safeBlockCount = 0;
-            let myClutchCanidate = false;
+            let myClutchCanidate: boolean | Block = false;
             for (let i = 0; i < 21; i++) {
                 if (Math.floor(bot.entity.position.y) - i <= 0) {
                     i = 21;
@@ -2571,21 +2572,37 @@ bot.once("spawn", () => {
                     );
                 }
             }
+
+            for (var i = 0; i < clutchCanidates.length; i++) {
+                if (!clutchCanidates[i]) {
+                    continue;
+                } else {
+                    if (blockWater(bot, (clutchCanidates[i] as Block).position.x, (clutchCanidates[i] as Block).position.y, (clutchCanidates[i] as Block).position.z)) {
+                        safeBlockCount++;
+                    }
+                    if (!myClutchCanidate || myClutchCanidate && (clutchCanidates[i] as Block).position.y > myClutchCanidate.position.y ||
+                        myClutchCanidate && (myClutchCanidate as any as number) == (myClutchCanidate as Block).position.y &&
+                        !blockWater(bot, (clutchCanidates[i] as Block).position.x, (clutchCanidates[i] as Block).position.y, (clutchCanidates[i] as Block).position.z)) {
+                        myClutchCanidate = (clutchCanidates[i] as Block);
+                    }
+                }
+            }
+            
             for (let i = 0; i < clutchCanidates.length; i++) {
                 if (!clutchCanidates[i]) {
                     continue;
                 } else {
-                    if (blockWater(bot, clutchCanidates[i].position.x, clutchCanidates[i].position.y, clutchCanidates[i].position.z)) {
+                    if (blockWater(bot, (clutchCanidates[i] as Block).position.x, (clutchCanidates[i] as Block).position.y, (clutchCanidates[i] as Block).position.z)) {
                         safeBlockCount++;
                     }
                     if (
                         !myClutchCanidate ||
-                        (myClutchCanidate && clutchCanidates[i].position.y > myClutchCanidate.position.y) ||
+                        (myClutchCanidate && (clutchCanidates[i] as Block).position.y > (myClutchCanidate as Block).position.y) ||
                         (myClutchCanidate &&
-                            myClutchCanidate == myClutchCanidate.position.y &&
-                            !blockWater(bot, clutchCanidates[i].position.x, clutchCanidates[i].position.y, clutchCanidates[i].position.z))
+                            (myClutchCanidate as any as number) == (myClutchCanidate as Block).position.y &&
+                            !blockWater(bot, (clutchCanidates[i] as Block).position.x, (clutchCanidates[i] as Block).position.y, (clutchCanidates[i] as Block).position.z))
                     ) {
-                        myClutchCanidate = clutchCanidates[i];
+                        myClutchCanidate = clutchCanidates[i] as any;
                     }
                 }
             }
@@ -2593,12 +2610,12 @@ bot.once("spawn", () => {
                 (!myClutchCanidate && !onPath) ||
                 (movesToGo[lastPos.currentMove] && Math.abs(movesToGo[lastPos.currentMove].y - lastPos.y) > 3)
             ) {
-                bot.look(bot.entity.yaw, 0, 100);
+                bot.look(bot.entity.yaw, 0, (100 as any as boolean));
             } else if (
                 (bot.entity.velocity.y <= -0.5518 &&
                     myClutchCanidate &&
                     safeBlockCount < 4 &&
-                    !blockWater(bot, myClutchCanidate.position.x, myClutchCanidate.position.y, myClutchCanidate.position.z) &&
+                    !blockWater(bot, (myClutchCanidate as Block).position.x, (myClutchCanidate as Block).position.y, (myClutchCanidate as Block).position.z) &&
                     !onPath) ||
                 (movesToGo[lastPos.currentMove] && Math.abs(movesToGo[lastPos.currentMove].y - lastPos.y) > 3)
             ) {
@@ -2607,13 +2624,13 @@ bot.once("spawn", () => {
                 equipItem(bot, ["water_bucket"], "hand");
                 //console.log(bot.heldItem);
                 botMove.bucketTarget = {
-                    x: myClutchCanidate.position.x + 0.5,
-                    y: myClutchCanidate.position.y,
-                    z: myClutchCanidate.position.z + 0.5,
+                    x: (myClutchCanidate as Block).position.x + 0.5,
+                    y: (myClutchCanidate as Block).position.y,
+                    z: (myClutchCanidate as Block).position.z + 0.5,
                 };
                 let canLookStraightDown = true;
                 for (let i = 0; i < clutchCanidates.length; i++) {
-                    if (clutchCanidates[i].y != botMove.bucketTarget.y) {
+                    if ((clutchCanidates[i] as Block).position.y != botMove.bucketTarget.y) {
                         canLookStraightDown = false;
                     }
                 }
@@ -2627,10 +2644,10 @@ bot.once("spawn", () => {
                         bot.entity.velocity.y <= -0.6518 &&
                         botMove.bucketTimer <= 0 &&
                         leBlockAtCursor &&
-                        leBlockAtCursor.position.x == myClutchCanidate.position.x &&
-                        leBlockAtCursor.position.y == myClutchCanidate.position.y &&
-                        leBlockAtCursor.position.z == myClutchCanidate.position.z &&
-                        Math.abs(myClutchCanidate.position.y - bot.entity.position.y) <= 5 &&
+                        leBlockAtCursor.position.x == (myClutchCanidate as Block).position.x &&
+                        leBlockAtCursor.position.y == (myClutchCanidate as Block).position.y &&
+                        leBlockAtCursor.position.z == (myClutchCanidate as Block).position.z &&
+                        Math.abs((myClutchCanidate as Block).position.y - bot.entity.position.y) <= 5 &&
                         botMove.bucketTimer <= 0 &&
                         bot.heldItem &&
                         bot.heldItem.name == "water_bucket"
@@ -2783,7 +2800,7 @@ bot.once("spawn", () => {
             }
             if (!onPath) {
                 console.log("GET BACK IN FORMATION SOLDIER");
-                if (bot.entity.onGround || bot.entity.isInWater || (bot.entity.isInLava && movesToGo.length > 0 && botSearchingPath < 0)) {
+                if (bot.entity.onGround || bot.entity.isInWater || ((bot.entity as any).isInLava && movesToGo.length > 0 && botSearchingPath < 0)) {
                     findPath(bot, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, true);
                 }
             }
@@ -2815,7 +2832,7 @@ bot.once("spawn", () => {
                 jumpDir.z = 0;
             }
             //console.log(myMove);
-            console.log(bot.blockAt(new Vec3(Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z))).type);
+            console.log(bot.blockAt(new Vec3(Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z)))!.type);
             //console.log(blockWater(bot, Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z)));
             //stuff here(!!!)
             busyBuilding = false;
@@ -2843,8 +2860,8 @@ bot.once("spawn", () => {
                         (bot.entity.velocity.y < 1.0 &&
                             Math.floor(bot.entity.position.x) == lastPos.x &&
                             Math.floor(bot.entity.position.z) == lastPos.z &&
-                            (Math.floor(bot.entity.position.y) == lastPos.y) & blockLava(bot, lastPos.x, lastPos.y, lastPos.z)) ||
-                        (Math.floor(bot.entity.position.y) == lastPos.y + 1) & blockLava(bot, lastPos.x, lastPos.y + 1, lastPos.z)
+                            (Math.floor(bot.entity.position.y) == lastPos.y) && blockLava(bot, lastPos.x, lastPos.y, lastPos.z)) ||
+                        (Math.floor(bot.entity.position.y) == lastPos.y + 1) && blockLava(bot, lastPos.x, lastPos.y + 1, lastPos.z)
                     ) {
                         bot.entity.velocity.y += 0.1;
                         console.log("EEEEEEE");
@@ -2854,8 +2871,8 @@ bot.once("spawn", () => {
                 botMove.sprint = false;
                 //if (dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.25)) {botMove.forward = false;}
             } else if (
-                (myMove.mType == "walk") & (dist3d(lastPos.x, 0, lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3)) ||
-                (myMove.mType == "walkDiag") & (dist3d(lastPos.x, 0, lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3)) ||
+                (myMove.mType == "walk") && (dist3d(lastPos.x, 0, lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3)) ||
+                (myMove.mType == "walkDiag") && (dist3d(lastPos.x, 0, lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3)) ||
                 myMove.mType == "walkJump" ||
                 (myMove.mType == "walkDiagJump" &&
                     /*dist3d(lastPos.x, 0, lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3) &&*/ dist3d(
@@ -2876,10 +2893,10 @@ bot.once("spawn", () => {
                     (Math.abs(myMove.z - lastPos.z) == 1 && myMove.y > lastPos.y) ||
                     (dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) > Math.sqrt(2) &&
                         jumpDir.x == 0) ||
-                    (jumpDir.x > 0) & (bot.entity.position.x >= lastPos.x + 0.5 + jumpDir.x * 0.2) ||
-                    ((jumpDir.x < 0) & (bot.entity.position.x <= lastPos.x + 0.5 + jumpDir.x * 0.2) && jumpDir.z == 0) ||
-                    (jumpDir.z > 0) & (bot.entity.position.z >= lastPos.z + 0.5 + jumpDir.z * 0.2) ||
-                    (jumpDir.z < 0) & (bot.entity.position.z <= lastPos.z + 0.5 + jumpDir.z * 0.2)
+                    (jumpDir.x > 0) && (bot.entity.position.x >= lastPos.x + 0.5 + jumpDir.x * 0.2) ||
+                    ((jumpDir.x < 0) && (bot.entity.position.x <= lastPos.x + 0.5 + jumpDir.x * 0.2) && jumpDir.z == 0) ||
+                    (jumpDir.z > 0) && (bot.entity.position.z >= lastPos.z + 0.5 + jumpDir.z * 0.2) ||
+                    (jumpDir.z < 0) && (bot.entity.position.z <= lastPos.z + 0.5 + jumpDir.z * 0.2)
                 ) {
                     //console.log("parkour jump " + (myWalkAngle - myAngle));
                     let shouldStrafeCorrect = true;
@@ -3023,7 +3040,7 @@ bot.once("spawn", () => {
                             botLookAtY,
                             bot.entity.position.z + (bot.entity.position.z - (movesToGo[lastPos.currentMove].z + 0.5))
                         ),
-                        25
+                        true
                     );
                 }
             }
@@ -3076,7 +3093,7 @@ bot.once("spawn", () => {
         } else {
             onPath = false;
         }
-        let target = bot.nearestEntity();
+        target = bot.nearestEntity();
         if (
             equipPackets.length == 0 &&
             blockPackets.length == 0 &&
@@ -3117,7 +3134,7 @@ bot.once("spawn", () => {
                 target.position.z
             ) <= botRange
         ) {
-            bot.attack(target, true);
+            bot.attack(target);
             //console.log(target.position.y);
             //console.log(bot.entity.position.y);
             //bot.stopDigging();
@@ -3180,9 +3197,9 @@ bot.on("chat", function (username, message) {
                 break;
             case "goto":
                 let validSyntax = false;
-                let findPathX = 0,
-                    findPathY = 0,
-                    findPathZ = 0;
+                let findPathX: number | undefined = 0,
+                    findPathY: number | "no" = 0,
+                    findPathZ: number | undefined = 0;
                 if (myMessage[1] == "me") {
                     console.log("Finding you...");
                     let playerTo = bot.players[username];
@@ -3200,12 +3217,12 @@ bot.on("chat", function (username, message) {
                             continue;
                         } else if (inven[i].name == "compass") {
                             console.log(JSON.stringify(inven[i].name));
-                            if (inven[i].nbt && inven[i].nbt.value && inven[i].nbt.value.LodestonePos) {
-                                console.log(JSON.stringify(inven[i].nbt.value.LodestonePos));
-                                findPathX = inven[i].nbt.value.LodestonePos.value.X.value;
+                            if (inven[i].nbt && inven[i].nbt!.value && (inven[i].nbt!.value as any).LodestonePos) {
+                                console.log(JSON.stringify((inven[i].nbt!.value as any).LodestonePos));
+                                findPathX = (inven[i].nbt!.value as any).LodestonePos.value.X.value;
                                 //findPathY = inven[i].nbt.value.LodestonePos.value.Y.value +
                                 findPathY = "no";
-                                findPathZ = inven[i].nbt.value.LodestonePos.value.Z.value;
+                                findPathZ = (inven[i].nbt!.value as any).LodestonePos.value.Z.value;
                                 validSyntax = true;
                                 i = inven.length;
                             }
@@ -3230,7 +3247,7 @@ bot.on("chat", function (username, message) {
                     } else {
                         findPathY = "no";//This is the cursedness I was talking about
                         findPathZ = Math.round(Number(myMessage[2]));
-                        botGoal = { x: findPathX, y: "no", z: findPathZ, reached: false };
+                        botGoal = { x: findPathX, y: "no" as unknown as number, z: findPathZ, reached: false };
                     }
 
                     if (findPathX != NaN && findPathY != NaN /* && findPathZ != NaN*/) {
@@ -3247,11 +3264,11 @@ bot.on("chat", function (username, message) {
                             Math.floor(bot.entity.position.z)
                     );
                     if (findPathY != "no") {
-                        botGoal = { x: findPathX, y: findPathY, z: findPathZ, reached: false };
-                        findPath(bot, findPathX, findPathY, findPathZ);
+                        botGoal = { x: findPathX!, y: findPathY, z: findPathZ!, reached: false };
+                        findPath(bot, findPathX!, findPathY, findPathZ);
                     } else {
-                        botGoal = { x: findPathX, y: "no", z: findPathZ, reached: false };
-                        findPath(bot, findPathX, findPathZ);
+                        botGoal = { x: findPathX!, y: "no" as any as number, z: findPathZ!, reached: false };
+                        findPath(bot, findPathX!, findPathZ!);
                     }
                     //bot.entity.position.x = Math.floor(bot.entity.position.x) + 0.5;
                     //bot.entity.position.z = Math.floor(bot.entity.position.z) + 0.5;
@@ -3286,9 +3303,9 @@ bot.on("chat", function (username, message) {
                 //bot.chat("/tpa");
                 break;
             case "breakBlock":
-                if (bot.canDigBlock(bot.blockAtCursor(5))) {
+                if (bot.canDigBlock(bot.blockAtCursor(5)!)) {
                     bot.chat("Digging block");
-                    bot.dig(bot.blockAtCursor(5));
+                    bot.dig(bot.blockAtCursor(5)!);
                 } else {
                     bot.chat("Undiggable");
                 }
@@ -3297,7 +3314,7 @@ bot.on("chat", function (username, message) {
                 placeBlock(bot, Math.floor(Number(myMessage[1])), Math.floor(Number(myMessage[2])), Math.floor(Number(myMessage[3])), false);
                 break;
             case "inventory":
-                equipItem(bot, [myMessage[1]], myMessage[2]);
+                equipItem(bot, [myMessage[1]], myMessage[2] as any);
                 break;
             case "trimPath":
                 /*let bestOne = [0, 100000];
@@ -3322,8 +3339,8 @@ bot.on("chat", function (username, message) {
                 break;
             case "extendPath":
                 botSearchingPath = 10;
-                let validSyntax = false;
-                let findPathX = 0,
+                validSyntax = false;
+                findPathX = 0,
                     findPathY = 0,
                     findPathZ = 0;
                 if (myMessage[1] == "me") {
@@ -3367,7 +3384,7 @@ bot.on("chat", function (username, message) {
                             ", Z: " +
                             Math.floor(bot.entity.position.z)
                     );
-                    botGoal = { x: findPathX, y: findPathY, z: findPathZ, reached: false };
+                    botGoal = { x: findPathX, y: findPathY, z: findPathZ!, reached: false };
                     findPath(bot, findPathX, findPathY, findPathZ, false, true);
                     //bot.entity.position.x = Math.floor(bot.entity.position.x) + 0.5;
                     //bot.entity.position.z = Math.floor(bot.entity.position.z) + 0.5;

@@ -2,8 +2,19 @@ import { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
 import { BlockInfo } from "./blockInfo";
 import { toolsForMaterials } from "./constants";
+import { Movement } from "./movement";
 import { cantGetBlockError, getTool } from "./util";
+const { PlayerState } = require("prismarine-physics");
 
+
+interface SimulationControl {
+    forward: boolean,
+    back: boolean,
+    left: boolean,
+    right: boolean,
+    jump: boolean,
+    sneak: boolean,
+}
 export class CostCalculator {
 
     constructor(private bot: Bot, private blockInfo: BlockInfo) {
@@ -19,4 +30,19 @@ export class CostCalculator {
         if (block.hardness >= 100 || block.hardness == null) return 9999999;
         return block.digTime(item?.type ?? null, this.bot.player.gamemode == 1, inWater, false, item?.enchants, {} as any);
     }
+
+
+    getMovementCost(org: Vec3, dest: Vec3, controls: SimulationControl, maxTicks: number) {
+        const state = new PlayerState(this.bot, controls)
+        for (let i = 0; i < maxTicks; i++) {
+            (this.bot.physics as any).simulatePlayer(state, this.bot.world)
+            if (state.isInLava) return state
+            if (goal(state)) return state
+          }
+
+
+    }
+    simulateUntil (goal: Function, controller: Function, controls: SimulationControl, ticks = 1) {
+      }
+    
 }

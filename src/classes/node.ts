@@ -1,4 +1,4 @@
-import { FakeVec3, MovementEnum } from "./constants";
+import { FakeVec3, MovementEnum } from "../constants";
 
 export class Node {
     constructor(
@@ -8,6 +8,7 @@ export class Node {
         public x: number,
         public y: number,
         public z: number,
+        public inLiquid: boolean,
         public open: boolean,
         public move: MovementEnum,
         public availableBlocks: number,

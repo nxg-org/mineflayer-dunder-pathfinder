@@ -2,7 +2,10 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { getToolPriority, toolsForMaterials } from "./constants";
-import { Node } from "./node";
+import { Node } from "./classes/node";
+
+
+export const MAX_COST = 1000000
 
 export function cantGetBlockError(functionName: string, x: number, y: number, z: number, reason?: string) {
     return new Error(`[ERROR from ${functionName}]:   Invalid block at (${x}, ${y}, ${z})\nReason: ${reason}`);

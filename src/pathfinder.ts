@@ -3,9 +3,9 @@ import { MovementEnum, FakeVec3, dist3d, xyzxyzdist3d, xyzv3dist3d, xyzxyzequal,
 import { Bot } from "mineflayer";
 import { BotActions } from "./botActions";
 import { Vec3 } from "vec3";
-import { BlockInfo } from "./blockInfo";
+import { BlockInfo } from "./blockInfoNew";
 // import { Block } from "prismarine-block";
-import {Node} from "./node"
+import {Node} from "./classes/node"
 
 export type Move = {
     x: number;

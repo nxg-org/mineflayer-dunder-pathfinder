@@ -3,7 +3,7 @@ import { Vec3 } from "vec3";
 import md from "minecraft-data";
 import { MovementEnum } from "./constants";
 import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "./util";
-import { Node } from "./node";
+import { Node } from "./classes/node";
 import { Block } from "prismarine-block";
 
 const noNeedToBreakNames = new Set(["air", "cave_air", "void_air", "lava", "flowing_lava", "water", "flowing_water"]);
@@ -40,23 +40,23 @@ export class BlockInfo {
         }
     }
 
-    shouldBreakBeforePlaceBlock(x: number, y: number, z: number): boolean {
-        const block = this.bot.blockAt(new Vec3(x, y, z));
-        if (!block) throw cantGetBlockError("shouldBreakBeforePlaceBlock", x, y, z);
+    shouldBreakBeforePlaceBlock(block: Block): boolean {
+        // const block = this.bot.blockAt(new Vec3(x, y, z));
+        // if (!block) throw cantGetBlockError("shouldBreakBeforePlaceBlock", x, y, z);
         if (block.shapes.length === 0) return false;
-        else if (!this.canStandOnBlock(x, y, z) && !this.autoReplaceBlockIDs.has(block.type)) return true;
+        else if (!this.canStandOnBlock(block) && !this.autoReplaceBlockIDs.has(block.type)) return true;
         return false;
     }
 
-    isBlockDiggable(x: number, y: number, z: number): boolean {
-        const block = this.bot.blockAt(new Vec3(x, y, z));
-        if (!block) throw cantGetBlockError("isBlockDiggable", x, y, z);
+    isBlockDiggable(block: Block): boolean {
+        // const block = this.bot.blockAt(new Vec3(x, y, z));
+        // if (!block) throw cantGetBlockError("isBlockDiggable", x, y, z);
         return !!(block && block.hardness);
     }
 
-    canStandOnBlock(x: number, y: number, z: number, parentNode?: Node): boolean {
-        const block = this.bot.blockAt(new Vec3(x, y, z));
-        if (!block) throw cantGetBlockError("canStandOnBlock", x, y, z);
+    canStandOnBlock(block: Block, parentNode?: Node): boolean {
+        // const block = this.bot.blockAt(new Vec3(x, y, z));
+        // if (!block) throw cantGetBlockError("canStandOnBlock", x, y, z);
         if (
             block.shapes.length == 1 &&
             block.shapes[0][0] <= 0.126 &&
@@ -130,6 +130,10 @@ export class BlockInfo {
         return !!(block && this.lavaBlockIDs.has(block.type)); // will auto assume false if not is not found from import.
     }
 
+    isLiquid(block: Block): boolean {
+        return this.isWater(block) || this.isLava(block)
+    }
+
     slabSwimTarget(block: Block): number {
         // const block = this.bot.blockAt(new Vec3(x, y, z));
         // if (!block) throw cantGetBlockError("slabSwimTarget", x, y, z);
@@ -137,10 +141,10 @@ export class BlockInfo {
         return 0;
     }
 
-    canDigBlock(x: number, y: number, z: number) {
-        const myBlock = this.bot.blockAt(new Vec3(x, y, z));
-        if (!myBlock) throw cantGetBlockError("canDigBlock", x, y, z)
-        return this.bot.canDigBlock(myBlock);
+    canDigBlock(block: Block) {
+        // const myBlock = this.bot.blockAt(new Vec3(x, y, z));
+        // if (!myBlock) throw cantGetBlockError("canDigBlock", x, y, z)
+        return this.bot.canDigBlock(block);
     }
     
 }

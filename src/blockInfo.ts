@@ -3,7 +3,7 @@ import { Vec3 } from "vec3";
 import md from "minecraft-data";
 import { MovementEnum } from "./constants";
 import { cantGetBlockError, parentBrokeInPast } from "./util";
-import { Node } from "./node";
+import { Node } from "./classes/node";
 
 const noNeedToBreakNames = new Set(["air", "cave_air", "void_air", "lava", "flowing_lava", "water", "flowing_water"]);
 

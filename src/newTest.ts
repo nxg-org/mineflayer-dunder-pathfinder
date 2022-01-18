@@ -28,6 +28,7 @@ import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import {Vec3} from "vec3"
 
 import { Bot, EquipmentDestination } from "mineflayer";
+import { BlockInteraction } from "./classes";
 //const myPhysics = require("prismarine-physics");
 const mineflayerViewer = require("prismarine-viewer").mineflayer;
 
@@ -72,7 +73,7 @@ type Node = {
     z: number;
     open: boolean;
     moveType: string;
-    brokenBlocks: number[][];
+    brokenBlocks: BlockInteraction[];
     brokeBlocks: boolean;
     placedBlocks: boolean;
 };

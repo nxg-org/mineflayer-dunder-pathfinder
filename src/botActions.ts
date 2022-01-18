@@ -21,7 +21,7 @@ const placeBlockOffsets = [
 
 export class BotActions extends EventEmitter {
     private blockPackets: { x: number; y: number; z: number }[] = [];
-    constructor(private bot: Bot, private calcInfo: CostCalculator) {
+    constructor(private bot: Bot, private costInfo: CostCalculator) {
         super();
     }
 
@@ -55,7 +55,7 @@ export class BotActions extends EventEmitter {
         // botLookAtY = y; // this is a differential, to make it more "humanistic" -Vak
         if (canMine && !this.bot.targetDigBlock) {
             this.bot.dig(block);
-            // botDestinationTimer = 30 + this.calcInfo.getDigTime( x, y, z, this.bot.entity.isInWater, true);
+            // botDestinationTimer = 30 + this.costInfo.getDigTime( x, y, z, this.bot.entity.isInWater, true);
         }
     }
 

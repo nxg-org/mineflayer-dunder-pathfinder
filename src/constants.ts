@@ -68,9 +68,21 @@ export enum MovementEnum {
     SprintSwimDiagonal,
 }
 
-export const SwimmingMovements: MovementEnum[] = [-1, 8, 9, 10, 11, 12];
-export const SlowerMovements: MovementEnum[] = [0, 1, 8, 9];
-export const SprintMovements: MovementEnum[] = [4, 5, 6, 7, 11, 12];
+export interface SimulationControl {
+    forward: boolean;
+    back: boolean;
+    left: boolean;
+    right: boolean;
+    jump: boolean;
+    sneak: boolean;
+    sprint: boolean;
+}
+
+
+export const SwimmingMovements: Set<MovementEnum> = new Set([-1, 8, 9, 10, 11, 12]);
+export const SlowerMovements: Set<MovementEnum> = new Set([0, 1, 8, 9]);
+export const SprintMovements: Set<MovementEnum> = new Set([4, 5, 6, 7, 11, 12]);
+export const JumpMovements: Set<MovementEnum> = new Set([2, 3, 6, 7]);
 
 
 export type Direction = {x: number, z: number};

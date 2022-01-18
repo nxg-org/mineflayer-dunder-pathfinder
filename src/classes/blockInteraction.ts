@@ -2,7 +2,7 @@ import type { Vec3 } from "vec3";
 
 export enum IBlockType {
     PLACE,
-    BREAK
+    BREAK,
 }
 export class BlockInteraction {
     public hash: string;

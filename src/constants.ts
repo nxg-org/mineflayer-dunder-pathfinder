@@ -68,6 +68,22 @@ export enum MovementEnum {
     SprintSwimDiagonal,
 }
 
+export const MovementConst: {[moveType: string]: number} = {
+    Init: -1,
+    Cardinal: 0,
+    Diagonal: 1,
+    JumpCardinal: 2,
+    JumpDiagonal: 3,
+    SprintCardinal: 4,
+    SprintDiagonal:5 ,
+    SprintJumpCardinal:6,
+    SprintJumpDiagonal:7,
+    SwimCardinal:8,
+    SwimDiagonal:9,
+    SprintSwimCardinal:10,
+    SprintSwimDiagonal:11,
+} as const
+
 export interface SimulationControl {
     forward: boolean;
     back: boolean;

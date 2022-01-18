@@ -1,7 +1,7 @@
 import { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
 import { BlockInfo } from "./blockInfoNew";
-import { Direction, JumpMovements, MovementEnum, SlowerMovements, SprintMovements, SwimmingMovements, XYZ } from "./constants";
+import { allDirections, Direction, JumpMovements, MovementConst, MovementEnum, SlowerMovements, SprintMovements, SwimmingMovements, XYZ } from "./constants";
 import { Node } from "./classes/node";
 import { BlockInteraction, IBlockType, Movement } from "./classes";
 import { cantGetBlockError, MAX_COST } from "./util";
@@ -19,31 +19,7 @@ export class MovementInfo {
         private bot: Bot,
         private blockInfo: BlockInfo,
         private costInfo: CostCalculator
-        //public options: MovementCostOptions = { placeCost: 1, breakCost: 1, movementCost: 1 } //TODO: Calculate movement cost based on ticks required to move. Same with digging.
     ) {} 
-
-    // isSwim(movement: MovementEnum) {
-    //     return SwimmingMovements.has(movement)
-    // }
-
-    // isSprint(movement: MovementEnum) {
-    //     return SprintMovements.has(movement)
-    // }
-
-    // isJump(movement: MovementEnum) {
-    //     return JumpMovements.has(movement)
-    // }
-
-    // isSprintSwim(movement: MovementEnum) {
-    //     return SwimmingMovements.has(movement) && SprintMovements.has(movement)
-    // }
-
-    // isSprintJump(movement: MovementEnum) {
-    //     return JumpMovements.has(movement) && SprintMovements.has(movement)
-    // }
-    // isWalk(movement: MovementEnum) {
-    //     return SlowerMovements.has(movement)
-    // }
 
 
     maybeBreakCost(node: Node, block: Block, move: MovementEnum): number {
@@ -57,7 +33,7 @@ export class MovementInfo {
         return this.bot.blockAt(new Vec3(node.x + x, node.y + y, node.z + z));
     }
 
-    //Similar logic to
+    //Similar logic to mineflayer-pathfinder
     getMove(wanted: MovementEnum, node: Node, dir: Direction, movementsStore: Movement[]) {
         let cost = 0;
         const toBreak: BlockInteraction[] = [];
@@ -88,5 +64,18 @@ export class MovementInfo {
 
 
         }
+    }
+
+    getAllMoves(node: Node): Movement[] {
+        const moves: Movement[] = []
+        for (const d in allDirections) {
+            const dir = allDirections[d]
+            for (const m in MovementConst) {
+                const move = MovementConst[m]
+                this.getMove(move, node, dir, moves)
+            }
+    
+        }
+        return moves
     }
 }

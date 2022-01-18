@@ -20,7 +20,7 @@ export class Movement extends Vec3 {
         public safeToCancel: boolean = false
     ) {
         super(Math.floor(x), Math.floor(y), Math.floor(z));
-        this.deltaBlocks = /* toPlace.length */ -toBreak.length; // if uncomment, assume pick up blocks. This is probably really bad, lol.
+        this.deltaBlocks = /* toPlace.length */ -toPlace.length; // if uncomment, assume pick up blocks. This is probably really bad, lol.
         this.direction = new Vec3(this.origin.x - this.x, this.origin.y - this.y, this.origin.z - this.z);
         this.hash = this.x + "," + this.y + "," + this.z;
     }

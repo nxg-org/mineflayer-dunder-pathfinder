@@ -184,6 +184,6 @@ export class CostCalculator {
     }
 
     getPlacementCost(currentBlocks: number, toPlace: BlockInteraction[]) {
-        return currentBlocks - toPlace.length;
+        return currentBlocks / (currentBlocks - toPlace.length);
     }
 }

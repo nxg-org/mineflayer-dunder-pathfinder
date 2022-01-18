@@ -1,7 +1,7 @@
 import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
-import { getToolPriority, toolsForMaterials } from "./constants";
+import { getToolPriority, MovementEnum, SimulationControl, toolsForMaterials } from "./constants";
 import { Node } from "./classes/node";
 
 
@@ -63,6 +63,70 @@ export function getTool(bot: Bot, blockMaterial: string = "default"): Item | nul
         },
         [-1, null]
     )[1];
+}
+
+
+export function getController(movementType: MovementEnum): SimulationControl {
+    switch (movementType) {
+        case MovementEnum.Cardinal:
+        case MovementEnum.Diagonal:
+        case MovementEnum.SwimCardinal:
+        case MovementEnum.SwimDiagonal:
+            return {
+                forward: true,
+                back: false,
+                right: false,
+                left: false,
+                sneak: false,
+                sprint: false,
+                jump: false,
+            };
+        case MovementEnum.JumpCardinal:
+        case MovementEnum.JumpDiagonal:
+            return {
+                forward: true,
+                back: false,
+                right: false,
+                left: false,
+                sneak: false,
+                sprint: false,
+                jump: true,
+            };
+        case MovementEnum.SprintCardinal:
+        case MovementEnum.SprintDiagonal:
+        case MovementEnum.SprintSwimCardinal:
+        case MovementEnum.SprintSwimDiagonal:
+            return {
+                forward: true,
+                back: false,
+                right: false,
+                left: false,
+                sneak: false,
+                sprint: true,
+                jump: false,
+            };
+        case MovementEnum.SprintJumpCardinal:
+        case MovementEnum.SprintJumpDiagonal:
+            return {
+                forward: true,
+                back: false,
+                right: false,
+                left: false,
+                sneak: false,
+                sprint: true,
+                jump: true,
+            };
+        case MovementEnum.Init:
+            return {
+                forward: false,
+                back: false,
+                right: false,
+                left: false,
+                sneak: false,
+                sprint: false,
+                jump: false,
+            };
+    }
 }
 
 export function distanceXZ(dx: number, dz: number) {

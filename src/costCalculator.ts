@@ -1,10 +1,10 @@
 import { Bot } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { BlockInfo } from "./blockInfoNew";
+import { BlockInfo } from "./blockInfo";
 import { MovementEnum, SimulationControl, toolsForMaterials } from "./constants";
 import { BlockInteraction, Movement } from "./classes";
-import { cantGetBlockError, getTool, MAX_COST } from "./util";
+import { cantGetBlockError, getController, getTool, MAX_COST } from "./util";
 import md from "minecraft-data";
 const { PlayerState } = require("prismarine-physics");
 
@@ -38,7 +38,7 @@ export class CostCalculator {
      * @param useTools
      * @returns
      */
-    getDigTime(block: Block, inWater: boolean, useTools: boolean = true): number {
+    private getDigTime(block: Block, inWater: boolean, useTools: boolean = true): number {
         // const block = this.bot.blockAt(new Vec3(x, y, z));
         // if (!block) throw cantGetBlockError("getDigTime", x, y, z);
         let item;
@@ -59,68 +59,7 @@ export class CostCalculator {
         return this.customCalcs.digCostCalculation(this.bot, this.getDigTime(block, inWater, useTools));
     }
 
-    getController(movementType: MovementEnum): SimulationControl {
-        switch (movementType) {
-            case MovementEnum.Cardinal:
-            case MovementEnum.Diagonal:
-            case MovementEnum.SwimCardinal:
-            case MovementEnum.SwimDiagonal:
-                return {
-                    forward: true,
-                    back: false,
-                    right: false,
-                    left: false,
-                    sneak: false,
-                    sprint: false,
-                    jump: false,
-                };
-            case MovementEnum.JumpCardinal:
-            case MovementEnum.JumpDiagonal:
-                return {
-                    forward: true,
-                    back: false,
-                    right: false,
-                    left: false,
-                    sneak: false,
-                    sprint: false,
-                    jump: true,
-                };
-            case MovementEnum.SprintCardinal:
-            case MovementEnum.SprintDiagonal:
-            case MovementEnum.SprintSwimCardinal:
-            case MovementEnum.SprintSwimDiagonal:
-                return {
-                    forward: true,
-                    back: false,
-                    right: false,
-                    left: false,
-                    sneak: false,
-                    sprint: true,
-                    jump: false,
-                };
-            case MovementEnum.SprintJumpCardinal:
-            case MovementEnum.SprintJumpDiagonal:
-                return {
-                    forward: true,
-                    back: false,
-                    right: false,
-                    left: false,
-                    sneak: false,
-                    sprint: true,
-                    jump: true,
-                };
-            case MovementEnum.Init:
-                return {
-                    forward: false,
-                    back: false,
-                    right: false,
-                    left: false,
-                    sneak: false,
-                    sprint: false,
-                    jump: false,
-                };
-        }
-    }
+   
 
     /**
      * Convert digTime (ms) to ticks.
@@ -131,7 +70,7 @@ export class CostCalculator {
      */
     getMovementCost(dest: Vec3, move: MovementEnum, setBlocks: BlockInteraction[] = [], ticks: number = 5): number {
         if (setBlocks[0]) this.predictPlace(setBlocks);
-        const cost = this.getMovementTime(dest, this.getController(move), ticks);
+        const cost = this.getMovementTime(dest, getController(move), ticks);
         if (setBlocks[0]) this.removePredict(setBlocks);
         return cost === MAX_COST ? cost : this.customCalcs.movementCostCalculation(this.bot, Math.floor(cost / 50));
     }

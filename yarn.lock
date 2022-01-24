@@ -594,10 +594,10 @@ mime@1.6.0:
   resolved "https://registry.yarnpkg.com/mime/-/mime-1.6.0.tgz#32cd9e5c64553bd58d19a568af452acff04981b1"
   integrity sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==
 
-minecraft-data@^2.61.0, minecraft-data@^2.62.1, minecraft-data@^2.73.1, minecraft-data@^2.74.0, minecraft-data@^2.75.0, minecraft-data@^2.83.1, minecraft-data@^2.95.0, minecraft-data@^2.97.0, minecraft-data@^2.98.0:
-  version "2.106.0"
-  resolved "https://registry.yarnpkg.com/minecraft-data/-/minecraft-data-2.106.0.tgz#ad8d84e3e4e85f77d70b55f63606de80a6581f2d"
-  integrity sha512-eZ2AuR5FkM0Ai4OuIXwpNIdPOzC+Z75rdO/DKcTLwgIso2Z/YvDcdTaRD94ivCcTkVdkUg25mrt35KE651ckTA==
+minecraft-data@^2.110.0, minecraft-data@^2.61.0, minecraft-data@^2.62.1, minecraft-data@^2.73.1, minecraft-data@^2.74.0, minecraft-data@^2.75.0, minecraft-data@^2.83.1, minecraft-data@^2.95.0, minecraft-data@^2.97.0, minecraft-data@^2.98.0:
+  version "2.110.0"
+  resolved "https://registry.yarnpkg.com/minecraft-data/-/minecraft-data-2.110.0.tgz#3f8fe6344baff15147810bd5f5cf787a600c3992"
+  integrity sha512-mp5TQmcLXBmBpBOgzbVGt0tvRjsjpWyOj1Zmpi+5ZuxHSlHuS7naTrgTlHPuLgWhSY0wbip0iJmIjDoea+jebw==
 
 minecraft-folder-path@^1.2.0:
   version "1.2.0"

@@ -40,6 +40,8 @@ const bot = mineflayer.createBot({
     username: "dunderBot",
     version: "1.17.1",
 });
+
+
 var chunkColumns = [];
 function checkChunk(x, z) {
     var isTitle = false;

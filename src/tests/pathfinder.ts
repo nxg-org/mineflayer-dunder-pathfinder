@@ -2,11 +2,11 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
-import { BlockInfo, TypeCheck } from "./classes/blocks/blockInfo";
-import { BotActions } from "./classes/player/botActions";
-import { AdvancedPlayerControls, PlayerControls } from "./classes/player/playerControls";
-import { scaffoldBlocks } from "./utils/constants";
-import { CostCalculator } from "./classes/player/costCalculator";
+import { BlockInfo, TypeCheck } from "../classes/blocks/blockInfo";
+import { BotActions } from "../classes/player/botActions";
+import { AdvancedPlayerControls, PlayerControls } from "../classes/player/playerControls";
+import { scaffoldBlocks } from "../classes/utils/constants";
+import { CostInfo } from "../classes/player/costCalculator";
 
 const AABB = require("prismarine-physics/lib/aabb");
 const { PlayerState } = require("prismarine-physics");
@@ -108,7 +108,7 @@ export class Pathfinder {
     bestNodeIndex: number = 0;
     moveTimer: number = 0;
 
-    constructor(public bot: Bot, public botActions: BotActions, public costInfo: CostCalculator, public blockInfo: BlockInfo) {
+    constructor(public bot: Bot, public botActions: BotActions, public costInfo: CostInfo, public blockInfo: BlockInfo) {
         this.simControl = new PlayerControls(true, false, false, false, true, true, false);
         this.botMove = new AdvancedPlayerControls();
         // this.lastPos = { move: 0, ...this.bot.entity.position.floored() };

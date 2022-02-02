@@ -3,7 +3,7 @@ import { Bot } from "mineflayer";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
 import { PredictiveFunction } from "./goalTypes";
-import {  PathNode } from "../classes/nodes/node";
+import {  PathNode } from "../nodes/node";
 import { distanceXZ } from "../utils/util";
 
 

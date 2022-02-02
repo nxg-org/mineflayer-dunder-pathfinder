@@ -2,7 +2,7 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { FakeVec3, MovementEnum, SimulationControl, ToolPriority, toolsForMaterials, XYZ } from "./constants";
-import { PathNode } from "../classes/nodes/node";
+import { PathNode } from "../nodes/node";
 
 
 

@@ -2,9 +2,9 @@ import { Bot } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
 import { BlockInfo } from "../blocks/blockInfo";
-import { MovementEnum, SimulationControl, toolsForMaterials, MAX_COST } from "../../utils/constants";
+import { MovementEnum, SimulationControl, toolsForMaterials, MAX_COST } from "../utils/constants";
 import { BlockInteraction, Movement } from "..";
-import { cantGetBlockError, getController, getTool, } from "../../utils/util";
+import { cantGetBlockError, getController, getTool, } from "../utils/util";
 import md from "minecraft-data";
 const { PlayerState } = require("prismarine-physics");
 
@@ -14,7 +14,7 @@ export interface CostCalculatorOptions {
     movementCostCalculation: (bot: Bot, totalTicks: number) => number;
 }
 
-export class CostCalculator {
+export class CostInfo {
     //Too lazy to implement myself here.
     private predictWorld: typeof this.bot.util.predict.world;
 

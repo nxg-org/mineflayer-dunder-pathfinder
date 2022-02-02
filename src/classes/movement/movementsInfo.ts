@@ -14,11 +14,11 @@ import {
     MAX_COST,
     scaffoldBlocks,
     scaffoldBlocksAsSet,
-} from "../../utils/constants";
+} from "../utils/constants";
 import { PathNode } from "../nodes/node";
 import { BlockInteraction, IBlockType, Movement } from "..";
-import { cantGetBlockError } from "../../utils/util";
-import { CostCalculator } from "../player/costCalculator";
+import { cantGetBlockError } from "../utils/util";
+import { CostInfo } from "../player/costCalculator";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 
@@ -32,7 +32,7 @@ export class MovementInfo {
     private scaffoldBlockCache: number;
     public updateRequested: boolean = true;
 
-    constructor(private bot: Bot, private blockInfo: BlockInfo, private costInfo: CostCalculator) {
+    constructor(private bot: Bot, private blockInfo: BlockInfo, private costInfo: CostInfo) {
         this.scaffoldBlockCache = 0;
         this.bot.on("playerCollect", async () => {
             await this.bot.waitForTicks(1);
@@ -93,14 +93,14 @@ export class MovementInfo {
                 if (!cardA || !cardB || !cardC) throw "Can't get move."; //TODO
                 const cardBLiquid = this.blockInfo.isLiquid(cardB);
                 if (!this.blockInfo.canWalkOnBlock(cardC) && !cardBLiquid) {
-                    if (node.availableBlocks === 0) return;
+                    if (this.scaffoldBlockCount === 0) return;
 
                     if (this.blockInfo.shouldBreakBeforePlaceBlock(cardC)) {
                         if (!this.blockInfo.isBlockDiggable(cardC)) return; //TODO: add safety check. Definitely not stealing from mineflayer rn.
                         toBreak.push(new BlockInteraction(IBlockType.BREAK, cardC.position)); //TODO: add face placement? Also not stolen?
                     }
                     toPlace.push(new BlockInteraction(IBlockType.PLACE, cardB.position, cardC.position));
-                    cost += this.costInfo.getPlacementCost(node.availableBlocks, toPlace);
+                    cost += this.costInfo.getPlacementCost(this.scaffoldBlockCount, toPlace);
                 }
 
                 cost += this.maybeBreakCost(node, cardA, wanted);

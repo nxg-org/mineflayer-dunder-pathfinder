@@ -4,9 +4,9 @@ import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { Vec3 } from "vec3";
 import { BlockInfo } from "../blocks/blockInfo";
-import { scaffoldBlocks, toolsForMaterials } from "../../utils/constants";
-import { CostCalculator } from "./costCalculator";
-import { cantGetBlockError, cantGetItemError, getTool } from "../../utils/util";
+import { scaffoldBlocks, toolsForMaterials } from "../utils/constants";
+import { CostInfo } from "./costCalculator";
+import { cantGetBlockError, cantGetItemError, getTool } from "../utils/util";
 
 let equipPackets: any[] = [];
 const emptyVec = new Vec3(0, 0, 0);
@@ -22,7 +22,7 @@ const placeBlockOffsets = [
 export class BotActions extends EventEmitter {
     public readonly blockPackets: { x: number; y: number; z: number }[] = [];
     public readonly equipPackets: any[] = [];
-    constructor(private bot: Bot, private costInfo: CostCalculator) {
+    constructor(private bot: Bot, private costInfo: CostInfo) {
         super();
     }
 

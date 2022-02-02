@@ -607,6 +607,11 @@ mime@1.6.0:
   resolved "https://registry.yarnpkg.com/mime/-/mime-1.6.0.tgz#32cd9e5c64553bd58d19a568af452acff04981b1"
   integrity sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==
 
+minecraft-data@^2.100.1:
+  version "2.112.0"
+  resolved "https://registry.yarnpkg.com/minecraft-data/-/minecraft-data-2.112.0.tgz#33f83e277e8f8141b989022c09baf8cb1782ed50"
+  integrity sha512-BejjohaRRyJKHmvD32x5tn7qsl4fn4tUHeTjlOL6kcZmiFaoD6ARJ1TCWba1ogfekO4H+3toD3QAmNp7iz3Lqw==
+
 minecraft-data@^2.61.0, minecraft-data@^2.62.1, minecraft-data@^2.73.1, minecraft-data@^2.74.0, minecraft-data@^2.75.0, minecraft-data@^2.83.1, minecraft-data@^2.95.0, minecraft-data@^2.97.0, minecraft-data@^2.98.0:
   version "2.106.0"
   resolved "https://registry.yarnpkg.com/minecraft-data/-/minecraft-data-2.106.0.tgz#ad8d84e3e4e85f77d70b55f63606de80a6581f2d"
@@ -857,6 +862,15 @@ prismarine-physics@^1.2.2, prismarine-physics@^1.3.1:
   dependencies:
     minecraft-data "^2.73.1"
     prismarine-nbt "^1.4.0"
+    vec3 "^0.1.7"
+
+prismarine-physics@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/prismarine-physics/-/prismarine-physics-1.4.0.tgz#7eddf5d328dd816ebac73e0d0ef4bc5ec02e8aec"
+  integrity sha512-RiBl/9WFg5TBwoAj1pDWEBF4A7iauJ4WK3JoUfOsr3tO9EPGNR8pEPMJ2VftG2OzDIz70jjsg7L8ISyBva8Ncw==
+  dependencies:
+    minecraft-data "^2.100.1"
+    prismarine-nbt "^2.0.0"
     vec3 "^0.1.7"
 
 prismarine-recipe@^1.1.0:

@@ -1,4 +1,4 @@
-import { BaseGoal } from "../../goals";
+import { BaseGoal } from "../goals";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { PathNode } from "../nodes/node";
 

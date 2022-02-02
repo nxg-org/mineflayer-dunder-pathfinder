@@ -1,8 +1,8 @@
 import { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
 import md from "minecraft-data";
-import { MovementEnum } from "../../utils/constants";
-import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "../../utils/util";
+import { MovementEnum } from "../utils/constants";
+import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "../utils/util";
 import { PathNode } from "../nodes/node";
 import blockData, { Block } from "prismarine-block"
 import * as interactable from "./interactable.json"

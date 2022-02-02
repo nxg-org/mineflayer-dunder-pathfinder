@@ -1,22 +1,30 @@
 import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
-import { getToolPriority, MovementEnum, SimulationControl, toolsForMaterials } from "./constants";
-import { Node } from "./classes/node";
+import { FakeVec3, MovementEnum, SimulationControl, ToolPriority, toolsForMaterials, XYZ } from "./constants";
+import { PathNode } from "../classes/nodes/node";
 
 
-export const MAX_COST = 1000000
+
+export const xyzxyzequal = (a: XYZ, b: XYZ) => a.x == b.x && a.y == b.y && a.z == b.z;
+export const xyzv3equal = (a: XYZ, b: FakeVec3) => a.x == b[0] && a.y == b[1] && a.z == b[2];
+export const xyzxyzdist3d = (a: XYZ, b: XYZ) => dist3d(a.x, a.y, a.z, b.x, b.y, b.z);
+export const xyzv3dist3d = (a: XYZ, x: number, y: number, z: number) => dist3d(a.x, a.y, a.z, x, y, z);
+export function dist3d(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) {
+    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) + (z2 - z1) * (z2 - z1));
+}
+
 
 export function cantGetBlockError(functionName: string, x: number, y: number, z: number, reason?: string) {
-    return new Error(`[ERROR from ${functionName}]:   Invalid block at (${x}, ${y}, ${z})\nReason: ${reason}`);
+    return new Error(`[ERROR from ${functionName}]: Invalid block at (${x}, ${y}, ${z})\nReason: ${reason}`);
 }
 
 export function cantGetItemError(functionName: string, itemName: string, destination: string, reason?: string) {
     //leave in case invalid destination.
-    return new Error(`[ERROR from ${functionName}]:   Cannot equip item: ${itemName} to destination ${destination}\nReason: ${reason}`);
+    return new Error(`[ERROR from ${functionName}]: Cannot equip item: ${itemName} to destination ${destination}\nReason: ${reason}`);
 }
 
-export function parentBrokeInPast(x: number, y: number, z: number, parentNode: Node): boolean {
+export function parentBrokeInPast(x: number, y: number, z: number, parentNode: PathNode): boolean {
     while (parentNode.parent) {
         for (const block of parentNode.brokenBlocks) {
             if (block[0] == x && block[1] == y && block[2] == z) return true;
@@ -26,7 +34,7 @@ export function parentBrokeInPast(x: number, y: number, z: number, parentNode: N
     return false;
 }
 
-export function parentBrokeInPastBlock(blockPos: {x: number, y: number, z: number}, parentNode: Node): boolean {
+export function parentBrokeInPastBlock(blockPos: {x: number, y: number, z: number}, parentNode: PathNode): boolean {
     while (parentNode.parent) {
         for (const block of parentNode.brokenBlocks) {
             if (block[0] == blockPos.x && block[1] == blockPos.y && block[2] == blockPos.z) return true;
@@ -35,6 +43,18 @@ export function parentBrokeInPastBlock(blockPos: {x: number, y: number, z: numbe
     }
     return false;
 }
+
+
+// export function parentPlacedInPastBlock(blockPos: {x: number, y: number, z: number}, parentNode: Node): boolean {
+//     while (parentNode.parent) {
+//         for (const block of parentNode.) {
+//             if (block[0] == blockPos.x && block[1] == blockPos.y && block[2] == blockPos.z) return true;
+//         }
+//         parentNode = parentNode.parent;
+//     }
+//     return false;
+// }
+
 
 export function getTool(bot: Bot, blockMaterial: string = "default"): Item | null {
     const rightTool = toolsForMaterials[blockMaterial];
@@ -65,6 +85,10 @@ export function getTool(bot: Bot, blockMaterial: string = "default"): Item | nul
     )[1];
 }
 
+
+export function getToolPriority(name: string): number {
+    return ToolPriority[name.split("_", 1)[0]] ?? -1;
+}
 
 export function getController(movementType: MovementEnum): SimulationControl {
     switch (movementType) {

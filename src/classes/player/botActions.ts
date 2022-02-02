@@ -3,24 +3,25 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { Vec3 } from "vec3";
-import { BlockInfo } from "./blockInfoNew";
-import { getToolPriority, scaffoldBlocks, toolsForMaterials } from "./constants";
+import { BlockInfo } from "../blocks/blockInfo";
+import { scaffoldBlocks, toolsForMaterials } from "../../utils/constants";
 import { CostCalculator } from "./costCalculator";
-import { cantGetBlockError, cantGetItemError, getTool } from "./util";
+import { cantGetBlockError, cantGetItemError, getTool } from "../../utils/util";
 
 let equipPackets: any[] = [];
 const emptyVec = new Vec3(0, 0, 0);
 const placeBlockOffsets = [
-    [1, 0, 0],
-    [-1, 0, 0],
-    [0, 1, 0],
-    [0, -1, 0],
-    [0, 0, 1],
-    [0, 0, -1],
+    new Vec3(0, 1, 0),
+    new Vec3(0, -1, 0),
+    new Vec3(1, 0, 0),
+    new Vec3(-1, 0, 0),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 0, -1),
 ];
 
 export class BotActions extends EventEmitter {
-    private blockPackets: { x: number; y: number; z: number }[] = [];
+    public readonly blockPackets: { x: number; y: number; z: number }[] = [];
+    public readonly equipPackets: any[] = [];
     constructor(private bot: Bot, private costInfo: CostCalculator) {
         super();
     }
@@ -36,7 +37,7 @@ export class BotActions extends EventEmitter {
         return await this.bot.util.inv.customEquip(item, dest);
     }
 
-    async equipAnyOfItems(itemNames: string[], dest: EquipmentDestination = "hand") {
+    async equipAnyOfItems(itemNames: Iterable<string>, dest: EquipmentDestination = "hand") {
         for (const item of itemNames) {
             try {
                 return await this.equipItemByName(item, dest);
@@ -52,7 +53,12 @@ export class BotActions extends EventEmitter {
         const tool = getTool(this.bot, block.material ?? undefined);
         await this.equipItem(tool);
         if (this.bot.heldItem?.name === tool?.name) {
-            await this.bot.dig(block);
+            try {
+                await this.bot.dig(block);
+            } catch (e) {
+                console.log("digging error:", e)
+            }
+        
         }
     }
 
@@ -65,7 +71,7 @@ export class BotActions extends EventEmitter {
         }
     }
 
-    shouldPlaceBlock(blockPos: Vec3) {
+    alreadyPlanToPlace(blockPos: Vec3) {
         return this.blockPackets.findIndex((packet) => packet.x == blockPos.x && packet.y == blockPos.y && packet.z == blockPos.z) > -1;
     }
 
@@ -74,31 +80,46 @@ export class BotActions extends EventEmitter {
         // if (!block) throw cantGetBlockError("placeBlock", x, y, z, "main block error");
         if (block.shapes.length > 0) return;
         this.bot.stopDigging();
-        let placeOffset = new Vec3(0, 0, 0);
         if (this.bot.targetDigBlock) return;
+        let placeOffset = new Vec3(0, 0, 0);
 
         for (const packet of this.blockPackets) {
             if (packet.x === block.position.x && packet.y === block.position.y && packet.z === block.position.z) return;
         }
 
+        let offsetBlock;
         for (const offset of placeBlockOffsets) {
-            const realOffset = placeOffset.offset(offset[0], offset[1], offset[2]);
-            const offsetBlock = this.bot.blockAt(placeOffset.offset(offset[0], offset[1], offset[2]));
-            if (!offsetBlock) throw cantGetBlockError("placeBlock", realOffset.x, realOffset.y, realOffset.z, "offset block");
-            if (this.shouldPlaceBlock(realOffset) || offsetBlock.shapes.length > 0) placeOffset = realOffset;
+            const realOffset = block.position.minus(offset);
+            offsetBlock = this.bot.blockAt(realOffset);
+            // if (!offsetBlock) throw cantGetBlockError("placeBlock", realOffset.x, realOffset.y, realOffset.z, "offset block");
+            if (!offsetBlock) continue;
+            if (!this.alreadyPlanToPlace(realOffset) && offsetBlock.shapes.length > 0) {
+                placeOffset = offset
+                break;
+
+            }
         }
 
-        if (placeOffset.equals(emptyVec)) return;
+        if (placeOffset.equals(emptyVec) || !offsetBlock) return;
 
         await this.equipAnyOfItems(scaffoldBlocks, "hand");
         this.blockPackets.push(block.position);
         // this.bot.lookAt(new Vec3(x + 0.5, y + 0.5, z + 0.5), true);
-        const refVec = block.position.minus(placeOffset);
-        const ref = this.bot.blockAt(refVec);
+        const refVec = placeOffset;
+        const ref = offsetBlock;
         if (!ref) throw cantGetBlockError("placeBlock", refVec.x, refVec.y, refVec.z);
-        await this.bot.placeBlock(ref, placeOffset);
+        await this.bot.lookAt(block.position, true);
+        try {
+            await this.bot.placeBlock(block, refVec)
+        } catch (e) {
+            console.log("placeBlock error: ", e);
+        }
+  
+
         const index = this.blockPackets.indexOf(block.position);
         if (index > -1) this.blockPackets.splice(index);
         this.bot.swingArm(undefined);
+
+  
     }
 }

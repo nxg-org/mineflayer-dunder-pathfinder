@@ -28,7 +28,7 @@ import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import {Vec3} from "vec3"
 
 import { Bot, EquipmentDestination } from "mineflayer";
-import { BlockInteraction } from "./classes";
+import { BlockInteraction } from "../classes";
 //const myPhysics = require("prismarine-physics");
 const mineflayerViewer = require("prismarine-viewer").mineflayer;
 

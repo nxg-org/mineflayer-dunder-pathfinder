@@ -3,8 +3,8 @@ import { Bot } from "mineflayer";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
 import { PredictiveFunction } from "./goalTypes";
-import { Node } from "../classes/node";
-import { distanceXZ } from "../util";
+import {  PathNode } from "../classes/nodes/node";
+import { distanceXZ } from "../utils/util";
 
 
 export interface BaseGoalOptions {
@@ -20,8 +20,8 @@ export abstract class BaseGoal extends EventEmitter implements BaseGoalOptions {
     abstract get goalPos(): Vec3;
     abstract get goalPosRaw(): Vec3;
 
-    abstract cost(node: Node): number;
-    abstract goalReached(node: Node): boolean;
+    abstract cost(node: PathNode): number;
+    abstract goalReached(node: PathNode): boolean;
     
 
     predictiveFunction?: PredictiveFunction;
@@ -40,7 +40,7 @@ export class StaticGoal extends BaseGoal {
        return this.target
     }
 
-    cost(node: Node) {
+    cost(node: PathNode) {
         const {x, y, z} = this.goalPos
         const dx = x - node.x
         const dy = y - node.y
@@ -48,7 +48,7 @@ export class StaticGoal extends BaseGoal {
         return distanceXZ(dx, dz) + Math.abs(dy)
     }
 
-    goalReached(node: Node) {
+    goalReached(node: PathNode) {
         const {x, y, z} = this.goalPos
         return node.x === x && node.y === y && node.z === z
     }
@@ -69,7 +69,7 @@ export class EntityGoalDynamic extends BaseGoal {
         return this.target.position
     }
 
-    cost(node: Node) {
+    cost(node: PathNode) {
         const {x, y, z} = this.goalPos
         const dx = x - node.x
         const dy = y - node.y
@@ -77,7 +77,7 @@ export class EntityGoalDynamic extends BaseGoal {
         return distanceXZ(dx, dz) + Math.abs(dy)
     }
 
-    goalReached(node: Node) {
+    goalReached(node: PathNode) {
         const {x, y, z} = this.goalPos
         const dx =  x - node.x
         const dy = y - node.y
@@ -115,7 +115,7 @@ export class EntityGoalPredictive extends BaseGoal {
         return this.target.position;
     }
 
-    cost(node: Node) {
+    cost(node: PathNode) {
         const {x, y, z} = this.goalPos
         const dx = x - node.x
         const dy = y - node.y
@@ -123,7 +123,7 @@ export class EntityGoalPredictive extends BaseGoal {
         return distanceXZ(dx, dz) + Math.abs(dy)
     }
 
-    goalReached(node: Node) {
+    goalReached(node: PathNode) {
         const {x, y, z} = this.goalPos
         const dx =  x - node.x
         const dy = y - node.y
@@ -148,11 +148,11 @@ export class InverseGoal extends BaseGoal {
     }
 
 
-    cost(node: Node) {
+    cost(node: PathNode) {
         return -this.goal.cost(node);
     }
     
-    goalReached(node: Node): boolean {
+    goalReached(node: PathNode): boolean {
         return !this.goal.goalReached(node)
     }
 

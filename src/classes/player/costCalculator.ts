@@ -1,10 +1,10 @@
 import { Bot } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { BlockInfo } from "./blockInfo";
-import { MovementEnum, SimulationControl, toolsForMaterials } from "./constants";
-import { BlockInteraction, Movement } from "./classes";
-import { cantGetBlockError, getController, getTool, MAX_COST } from "./util";
+import { BlockInfo } from "../blocks/blockInfo";
+import { MovementEnum, SimulationControl, toolsForMaterials, MAX_COST } from "../../utils/constants";
+import { BlockInteraction, Movement } from "..";
+import { cantGetBlockError, getController, getTool, } from "../../utils/util";
 import md from "minecraft-data";
 const { PlayerState } = require("prismarine-physics");
 
@@ -38,7 +38,7 @@ export class CostCalculator {
      * @param useTools
      * @returns
      */
-    private getDigTime(block: Block, inWater: boolean, useTools: boolean = true): number {
+    public getDigTime(block: Block, inWater: boolean, useTools: boolean = true): number {
         // const block = this.bot.blockAt(new Vec3(x, y, z));
         // if (!block) throw cantGetBlockError("getDigTime", x, y, z);
         let item;
@@ -72,7 +72,7 @@ export class CostCalculator {
         if (setBlocks[0]) this.predictPlace(setBlocks);
         const cost = this.getMovementTime(dest, getController(move), ticks);
         if (setBlocks[0]) this.removePredict(setBlocks);
-        return cost === MAX_COST ? cost : this.customCalcs.movementCostCalculation(this.bot, Math.floor(cost / 50));
+        return cost === MAX_COST ? cost : this.customCalcs.movementCostCalculation(this.bot, cost);
     }
 
     private predictPlace(blocks: BlockInteraction[]) {
@@ -100,7 +100,7 @@ export class CostCalculator {
      * @param ticks
      * @returns
      */
-    getMovementTime(dest: Vec3, controls: SimulationControl, ticks: number = 5): number {
+    private getMovementTime(dest: Vec3, controls: SimulationControl, ticks: number = 5): number {
         const state = new PlayerState(this.bot, controls);
         for (let i = 0; i < ticks; i++) {
             (this.bot.physics as any).simulatePlayer(state, this.predictWorld);

@@ -5,9 +5,7 @@ BUGS:
 Standing on soul sand, grass path, or any other non full blocks will cause the bot to think that it must mine below it when starting a path
 
 TODO:
-Bot path correction:
-    splice begging of path
-    stop movement when searching for a fix
+    Fix costs for Y level when traveling long distances
 
 BUGS:
     One block two block up and down off path (FIXED BY botDestination)
@@ -25,20 +23,22 @@ POTENTIALLY FIXED:
 const mineflayer = require("mineflayer");
 //const myPhysics = require("prismarine-physics");
 const AABB = require("prismarine-physics/lib/aabb");
+const {PlayerState} = require("prismarine-physics");
 var Vec3 = require('vec3').Vec3;
-const mineflayerViewer = require("prismarine-viewer").mineflayer;
+//const mineflayerViewer = require("prismarine-viewer").mineflayer;
 
 function dist3d(x1, y1, z1, x2, y2, z2) {
     return Math.sqrt((x2 - x1)*(x2 - x1) + (y2 - y1)*(y2 - y1) + (z2 - z1)*(z2 - z1));
 };
 
 const bot = mineflayer.createBot({
+    //host: "localhost",
+    //host: "minecraft.next-gen.dev",
     host: "localhost",
-    host: "minecraft.next-gen.dev",
     port: 25565,
-    // port: 62192,//25565 is the default
+    //port: 56361,//25565 is the default
     username: "dunderBot",
-    version: "1.16.5",
+    version: "1.17.1",
 });
 var chunkColumns = [];
 function checkChunk(x, z) {
@@ -61,6 +61,98 @@ var botSearchingPath = 10;
 var botPathfindTimer = 0;
 var botLookAtY = 0;
 var botGoal = {x:0,y:0,z:0,reached:true};
+var jumpTarget = false;
+var jumpTargets = [];
+var myStates = [];
+var simControl = {
+    forward: true,
+    back: false,
+    left: false,
+    right: false,
+    jump: true,
+    sprint: true,
+    sneak: false,
+};
+function jumpSprintOnMoves(stateBase, searchCount, theParent) {
+    //bot.chat("/particle minecraft:flame ~ ~ ~");
+            //bot.entity.yaw
+          var target = bot.nearestEntity();
+          var minimumMove = lastPos.currentMove - 20;
+          if (minimumMove < 0) {
+              minimumMove = 0;
+          }
+          //console.log("minimumMove: " + minimumMove);
+          if (!movesToGo[minimumMove]) {
+              return;
+          }
+          //bot.lookAt(new Vec3(target.position.x, bot.entity.position.y + 1.6, target.position.z), 360);
+          bot.lookAt(new Vec3(movesToGo[minimumMove].x, movesToGo[minimumMove].y + 1.6, movesToGo[minimumMove].z), 360);
+          var myStateBase = stateBase;
+          var myDelta = new Vec3(movesToGo[minimumMove].x - myStateBase.pos.x, movesToGo[minimumMove].y - myStateBase.pos.y, movesToGo[minimumMove].z - myStateBase.pos.z);
+          myStateBase.yaw = Math.atan2(-myDelta.x, -myDelta.z);
+          for (var j = myStateBase.yaw - Math.PI / 2 + Math.PI / 8; j < myStateBase.yaw + Math.PI / 2; j += Math.PI / 8) {
+            //var myState = new PlayerState(bot, simControl);//Clone stuff here
+            var myState = JSON.parse(JSON.stringify(myStateBase));
+            myState.pos = new Vec3(myState.pos.x, myState.pos.y, myState.pos.z);
+            //myState.vel = new Vec3(myState.vel.x, myState.vel.y, myState.vel.z);
+            //console.log(JSON.stringify(myState));
+            myState.yaw = j;
+            for (var i = 0; i < 30; i++) {
+                bot.physics.simulatePlayer(myState, bot.world);
+                if (myState.onGround | myState.isInWater | myState.isInLava) {i = 30;}
+                //bot.chat("/particle minecraft:flame " + myState.pos.x + " " + myState.pos.y + " " + myState.pos.z);
+                //console.log(JSON.stringify(myState.pos));
+            }
+            if (myState.onGround) {
+                var myScore = 25;
+                for (var i = lastPos.currentMove; i >= 0 && i > movesToGo.length - 20; i--) {
+                    if (dist3d(myState.pos.x, myState.pos.y, myState.pos.z,
+                            movesToGo[i].x, movesToGo[i].y, movesToGo[i].z) <= 5) {
+                        //myScore += dist3d(myState.pos.x, myState.pos.y, myState.pos.z,
+                        //                  movesToGo[i].x, movesToGo[i].y, movesToGo[i].z);
+                        myScore -= 25;
+                    }
+                }
+                    myScore += dist3d(myState.pos.x, myState.pos.y, myState.pos.z,
+                                      movesToGo[minimumMove].x, movesToGo[minimumMove].y, movesToGo[minimumMove].z) * movesToGo.length;
+                myStates.push({state:myState,parent:theParent,open:true,score:myScore});
+            }
+          }
+        if (myStates.length > 0) {
+          var myBestState = 0;
+          for (var i = 0; i < myStates.length; i++) {
+              if (myStates[i].open == true && myStates[i].score < myStates[myBestState].score) {
+                  myBestState = i;
+              }
+              /*if (myStates[i].open == true && dist3d(myStates[i].state.pos.x, myStates[i].state.pos.y, myStates[i].state.pos.z,
+                         target.position.x, target.position.y, target.position.z) <
+                  dist3d(myStates[myBestState].state.pos.x, myStates[myBestState].state.pos.y, myStates[myBestState].state.pos.z,
+                         target.position.x, target.position.y, target.position.z)) {
+                  //console.log(myStates[i].open);
+                  myBestState = i;
+              }*/
+          }
+          //bot.chat("/particle minecraft:spit " + myStates[myBestState].state.pos.x + " " + myStates[myBestState].state.pos.y + " " + myStates[myBestState].state.pos.z);
+          if (dist3d(myStates[myBestState].state.pos.x, myStates[myBestState].state.pos.y, myStates[myBestState].state.pos.z,
+                         target.position.x, target.position.y, target.position.z) < 1.5 || searchCount <= 0) {
+              console.log("decent jumps found");
+              var mySearcher = myStates[myBestState];
+              while (mySearcher.parent) {
+                  jumpTargets.push(mySearcher.state.pos);
+                  mySearcher = mySearcher.parent;
+              }
+              jumpTargets.push(mySearcher.state.pos);
+              bot.lookAt(new Vec3(mySearcher.state.pos.x, /*mySearcher.state.pos.y*/target.position.y + 1.6, mySearcher.state.pos.z), 100);
+              jumpTarget = mySearcher.state.pos;
+          } else if (searchCount > 0) {
+              console.log(JSON.stringify(myStates[myBestState].open));
+              myStates[myBestState].open = false;
+              jumpSprintOnMoves(myStates[myBestState].state, searchCount - 1, myStates[myBestState]);
+          }
+        } else {
+            //bot.chat("nothing to jump on...");
+        }
+};
 var pathfinderOptions = {
     "maxFall":3,
     "maxFallClutch":256,
@@ -86,7 +178,7 @@ var garbageBlocks = ["diorite","granite","andesite","basalt","netherrack","dirt"
 function breakAndPlaceBlock(bot, x, y, z, checkStand) {
     var myBlock = bot.blockAt(new Vec3(x, y, z));
     var shouldItBreak = false;
-    if ((myBlock.shapes.length == 0 || checkStand && myBlock.shapes.length != 0 && !blockStand(bot, x, y, z)) && myBlock.name != "air" && myBlock.name != "cave_air" && myBlock.type != "void_air" &&
+    if (myBlock.shapes.length == 0 | checkStand & myBlock.shapes.length != 0 & !blockStand(bot, x, y, z) && myBlock.name != "air" && myBlock.name != "cave_air" && myBlock.type != "void_air" &&
         myBlock.name != "lava" && myBlock.name != "flowing_lava" && myBlock.name != "water" && myBlock.name != "flowing_water") {
         shouldItBreak = true;
     }
@@ -144,7 +236,7 @@ function blockStand(bot, x, y, z, zeNode) {
         myBlock.shapes[0][3] >= 1 - 0.126 && myBlock.shapes[0][4] >= 1 - 0.126 && myBlock.shapes[0][4] <= 1 + 0.126 && myBlock.shapes[0][5] >= 1 - 0.126) {
         isTitle = true;
     }
-    if (zeNode) {
+    if (zeNode && isTitle) {//1/17/2022
         while (zeNode.parent) {
             for (var i = 0; i < zeNode.brokenBlocks.length; i++) {
                 if (zeNode.brokenBlocks[i][0] == x && zeNode.brokenBlocks[i][1] == y && zeNode.brokenBlocks[i][2] == z) {
@@ -425,6 +517,8 @@ function placeBlock(bot, x, y, z, placeBackwards) {
         blockPackets.push({"x":x,"y":y,"z":z});
         bot.lookAt(new Vec3(x, y, z), 100);
         //attackTimer = 0;
+        console.log("PLACING AT:", `${x} ${y} ${z}`, "with bot at:", bot.entity.position)
+        console.log(bot.entity.position, x, y, z, placeOffSet);
         bot.placeBlock(bot.blockAt(new Vec3(x, y, z)), placeOffSet, function(e) {
             //attackTimer = 0;
             console.log("alerted " + e);
@@ -472,12 +566,13 @@ var openNodes = [];
 var nodes3d = [];
 var lastPos = {"currentMove":0,x:0,y:0,z:0};
 var saveBlock = {"x":0,"y":0,"z":0,"dist":1000,"works":false};
-function addNode(parent, fcost, hcost, x, y, z, moveType, brokenBlocks, brokeBlocks, placedBlocks) {
+function addNode(parent, fcost, hcost, x, y, z, moveType, brokenBlocks, brokeBlocks, placedBlocks, elBlockActions) {
     var parentFCost = fcost;
     if (parent) {
         parentFCost += parent.fCost;
     }
-    pushHeap({"parent":parent, "fCost":parentFCost, "hCost":hcost, "x":x, "y":y, "z":z, "open":true, "moveType":moveType, "brokenBlocks":brokenBlocks, "brokeBlocks":brokeBlocks, "placedBlocks":placedBlocks});
+    //if (elBlockActions.length > 0) {console.log("Something is definitely not right");}
+    pushHeap({"parent":parent, "fCost":parentFCost, "hCost":hcost, "x":x, "y":y, "z":z, "open":true, "moveType":moveType, "brokenBlocks":brokenBlocks, "brokeBlocks":brokeBlocks, "placedBlocks":placedBlocks, "blockActions":elBlockActions});
     if (nodes3d[y] == undefined) {nodes3d[y] = [];}
     if (nodes3d[y][z] == undefined) {nodes3d[y][z] = [];}
     nodes3d[y][z][x] = nodes[nodes.length - 1];
@@ -487,16 +582,20 @@ function addNode(parent, fcost, hcost, x, y, z, moveType, brokenBlocks, brokeBlo
 
 function validNode(node, x, y, z, endX, endY, endZ, type) {
     var waterSwimCost = 4;
-    var placeBlockCost = 10;//30
+    var placeBlockCost = 20;//30
     var breakBlockCost = 0;//0.045
-    //breakBlockCost = 3 / 1000;
+    breakBlockCost = 5 / 1000;
     //breakBlockCost = 0;
     var breakBlockCost2 = 10;//0.045
     if (botPathfindTimer > 20 * 4) {
-        breakBlockCost2 = 2;
-        console.log("way too long");
+        breakBlockCost = 1 / 1000;
+        breakBlockCost2 = 0;
+        placeBlockCost = 14;
+        //console.log("way too long");
     } else if (botPathfindTimer > 20 * 2) {
-        breakBlockCost2 = 5;
+        breakBlockCost = 3 / 1000;
+        breakBlockCost2 = 0;
+        placeBlockCost = 17;
         console.log("too long");
     }
     if (y <= 60) {
@@ -513,6 +612,7 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
     var brokenBlocks = [];
     var brokeBlocks = false;
     var placedBlocks = false;
+    var myBlockActions = [];
     var moveType = "walk";
 
     if (Math.abs(node.x - x) == 1 && Math.abs(node.z - z) == 1 && node.y == y) {//DIAGNOL WALK
@@ -591,7 +691,7 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
                 moveType = "walkDiagJump";
                 //parkour move
                 var stepDir = {"x":x - node.x, "z":z - node.z};
-                if (blockAir(bot, x, y + 1, z) && blockAir(bot, x, y + 2, z)) {
+            if (blockAir(bot, x, y + 1, z) && blockAir(bot, x, y + 2, z)) {
                     //x += stepDir.x;
                     //z += stepDir.z;
                     var checkCount = 0;
@@ -787,7 +887,11 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
             myFCost += (blockSolid(bot, x, y, z) && !blockWalk(bot, x, y, z)) * breakBlockCost2;
             myFCost += (blockSolid(bot, x, y + 1, z)) * breakBlockCost2;
             if (!blockWater(bot, x, y, z) && !blockWater(bot, x, y + 1, z) && !blockLava(bot, x, y, z) && !blockLava(bot, x, y + 1, z)) {
-                myFCost += (blockStand(bot, x, y - 1, z, node) != true) * placeBlockCost;
+                var placeBlockNeeded = (blockStand(bot, x, y - 1, z, node) != true);
+                if (placeBlockNeeded) { 
+                    myFCost += placeBlockNeeded * placeBlockCost;
+                    myBlockActions.push([x, y - 1, z]);
+                }
             }
             if (blockSolid(bot, x, y, z) && !blockWalk(bot, x, y, z)) {brokenBlocks.push([x, y, z]);brokeBlocks = true;}
             if (blockSolid(bot, x, y + 1, z)) {brokenBlocks.push([x, y + 1, z]);brokeBlocks = true;}
@@ -1002,7 +1106,11 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
             myFCost += (blockSolid(bot, x, y + 1, z)) * breakBlockCost2;
             myFCost += (blockSolid(bot, node.x, node.y + 2, node.z)) * breakBlockCost2;
             if (!blockWater(bot, x, y, z) && !blockWater(bot, x, y + 1, z) && !blockLava(bot, x, y, z) && !blockLava(bot, x, y + 1, z)) {
-                myFCost += (blockStand(bot, x, y - 1, z, node) != true) * placeBlockCost;
+                var placeBlockNeeded = (blockStand(bot, x, y - 1, z, node) != true);
+                if (placeBlockNeeded) {
+                    myFCost += placeBlockNeeded * placeBlockCost;
+                    myBlockActions.push([x, y - 1, z]);
+                }
             }
             if (blockSolid(bot, x, y, z) && !blockWalk(bot, x, y, z)) {brokenBlocks.push([x, y, z]);brokeBlocks = true;}
             if (blockSolid(bot, x, y + 1, z)) {brokenBlocks.push([x, y + 1, z]);brokeBlocks = true;}
@@ -1349,6 +1457,7 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
             inWater = true;
         } else {
             myFCost += placeBlockCost;
+            myBlockActions.push([x, y - 1, z]);
         }
         if (blockSolid(bot, x, y + 1, z)) {
             blocksBroken = true;
@@ -1362,7 +1471,14 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
     var distToGoal = 0;
     if (endZ != undefined) {
         //distToGoal = dist3d(x, y, z, endX, endY, endZ) * (3);
-        distToGoal = dist3d(x, y, z, endX, endY, endZ) * (25);
+        //distToGoal = dist3d(x, y, z, endX, endY, endZ) * (25);//DEFAULT
+        //distToGoal = dist3d(x, 0, z, endX, 0, endZ) * (25) + dist3d(0, y, 0, 0, endY, 0) * (10);
+        distToGoal = dist3d(x, 0, z, endX, 0, endZ) * (25);//Optimized?
+        if (distToGoal / 25 < 100) {
+            distToGoal += dist3d(0, y, 0, 0, endY, 0) * (18);
+        } else {
+            distToGoal += 4608;
+        }
         //distToGoal = dist3d(x, 0, z, endX, 0, endZ) * (10);
         //distToGoal += Math.abs(y - endY) * 10;
         //distToGoal += dist3d(0, y, 0, 0, endY, 0) * (10);
@@ -1375,7 +1491,7 @@ function validNode(node, x, y, z, endX, endY, endZ, type) {
         ownerNodeUndefined = true;
     }
     if (legalMove && ownerNodeUndefined) {
-        addNode(node, myFCost, distToGoal, x, y, z, moveType, brokenBlocks, brokeBlocks, placedBlocks);
+        addNode(node, myFCost, distToGoal, x, y, z, moveType, brokenBlocks, brokeBlocks, placedBlocks, myBlockActions);
         //console.log("D: " + Math.floor(distToGoal) + ", F: " + myFCost + ", M: " + moveType + ", XYZ: " + x + " " + y + " " + z);
     } else {
         //console.log("X: " + x + ", Y: " + y + ", Z: " + z + ", D: " + dist3d(x, y, z, endX, endY, endZ) * 10);
@@ -1418,6 +1534,7 @@ var movesToGo = [];
 };*/
 
 function pushHeap(obj) {
+    //console.log(JSON.stringify(obj.blockActions));
     //if (bestNodeIndex != 0) {window.helpMeFixErrorPlease();}
     nodes.push(obj);
     //openNodes.push(0);
@@ -1620,14 +1737,15 @@ function findPath(bot, endX, endY, endZ, correction, extension) {
 
     var foundPath = false;
     if (!extension || movesToGo.length == 0) {
-        addNode(false, 0, 0, Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z), "start", [], false);
+        addNode(false, 0, 0, Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z), "start", [], false, false, []);
     } else if (movesToGo.length > 0) {
         console.log("x: " + movesToGo[0].x + ", y: " + movesToGo[0].y + ", z: " + movesToGo[0].z + " " + movesToGo.length)
-        addNode(false, 0, 0, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, "start", [], false);
+        addNode(false, 0, 0, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, "start", [], false, false, []);
     }
     var attempts = 0;
     var maxAttempts = 0;
     var bestNode = nodes[0];
+    //console.log(bestNode.blockActions);
     var findingPath = setInterval(function() {
     bestNodeIndex = 0;
     //console.log("searching...");
@@ -1647,6 +1765,7 @@ function findPath(bot, endX, endY, endZ, correction, extension) {
         }*/
         bestNodeIndex = 0;
         bestNode = openNodes[0];
+        //console.log(bestNode.blockActions);
         /*for (var i = 0; i < openNodes.length; i++) {
             if (i > 0 && !bestNode.open) {console.log(JSON.stringify(bestNode) + ", :/ " + i);}
             if (openNodes[i].fCost == undefined || i > 1 && (openNodes[i].fCost + openNodes[i].hCost) < (openNodes[Math.floor((i - 1) / 2)].fCost + openNodes[Math.floor((i - 1) / 2)].hCost)) {console.log("Time for debugging: " + i);}
@@ -1661,6 +1780,7 @@ function findPath(bot, endX, endY, endZ, correction, extension) {
         //bestNodeIndex = 0;
         //openNodes.splice(bestNodeIndex, 1);
         popHeap(bestNode);
+        //console.log(bestNode.blockActions);
         var bestNodeWasOpen = bestNode.open;
         bestNode.open = false;
         var chunkAvailible = false;
@@ -1677,11 +1797,14 @@ function findPath(bot, endX, endY, endZ, correction, extension) {
             var ogreSection = movesToGo.length - 1;//original reference erray(thats how you spell array :P) section
             var extender = [];
             while (!atHome | steps < 1000 && bestNode.parent != undefined) {
+                //console.log(bestNode.blockActions);
                 //console.log(steps);
+                //console.log(JSON.stringify(bestNode));
                 if (!extension) {
-                    movesToGo.push({"mType":bestNode.moveType,"x":bestNode.x, "y":bestNode.y, "z":bestNode.z});
+                    movesToGo.push({"mType":bestNode.moveType,"x":bestNode.x, "y":bestNode.y, "z":bestNode.z, "blockActions":bestNode.blockActions, "blockDestructions":bestNode.brokenBlocks});
+                    console.log(JSON.stringify(movesToGo[movesToGo.length - 1]));
                 } else {
-                    extender.push({"mType":bestNode.moveType,"x":bestNode.x, "y":bestNode.y, "z":bestNode.z});
+                    extender.push({"mType":bestNode.moveType,"x":bestNode.x, "y":bestNode.y, "z":bestNode.z, "blockActions":bestNode.blockActions, "blockDestructions":bestNode.brokenBlocks});
                     //movesToGo.unshift({"x":bestNode.x, "y":bestNode.y, "z":bestNode.z});
                 }
               if (correction) {
@@ -1717,7 +1840,7 @@ function findPath(bot, endX, endY, endZ, correction, extension) {
             }
             bot.chat("I can be there in " + steps + " steps.");
         } else if (bestNodeWasOpen) {
-            bot.chat("/particle flame " + bestNode.x + " " + bestNode.y + " " + bestNode.z);
+            //bot.chat("/particle flame " + bestNode.x + " " + bestNode.y + " " + bestNode.z);
             /*if (bestNode.parent) {
                 console.log("bestNode.parent fCost vs this node fCost: " + (bestNode.fCost - bestNode.parent.fCost));
             }*/
@@ -2022,6 +2145,7 @@ bot.once("spawn", () => {
             }
         }
 
+        console.log(movesToGo[0])
         //extend the path when near the end of a path that hasn't reached the goal yet due to chunk borders
         if (!huntTarget && botSearchingPath <= 0 && !botGoal.reached && movesToGo.length > 0 && movesToGo.length <= 10 && movesToGo[0].x != botGoal.x | movesToGo[0].y != botGoal.y & botGoal.y != "no" | movesToGo[0].z != botGoal.z) {
                 console.log("Extending path through chunks...");
@@ -2199,7 +2323,7 @@ bot.once("spawn", () => {
                 debugTimer = 0;
                 //console.log(JSON.stringify(lastPos) + "\n" + "\n" + JSON.stringify(movesToGo));
                 for (var i = 0; i < movesToGo.length; i++) {
-                    // bot.chat("/particle flame " + movesToGo[i].x + " " + movesToGo[i].y + " " + movesToGo[i].z);
+                    //bot.chat("/particle flame " + movesToGo[i].x + " " + movesToGo[i].y + " " + movesToGo[i].z);
                 }
             }
             //console.log("e" + movesToGo.length + ", " + lastPos.currentMove);
@@ -2294,6 +2418,10 @@ bot.once("spawn", () => {
                     //console.log(JSON.stringify(onPathBoxes[i]));
                 }
             }
+            if (jumpTarget) {
+                botDestinationTimer++;
+                onPath = true;
+            }
             botDestinationTimer--;
             if (botDestinationTimer < 0) {
                 onPath = false;
@@ -2326,7 +2454,7 @@ bot.once("spawn", () => {
             if (lastPos.x == myMove.x) {jumpDir.x = 0;}
             if (lastPos.z == myMove.z) {jumpDir.z = 0;}
             //console.log(myMove);
-            console.log(bot.blockAt(new Vec3(Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z))).type);
+            //console.log(bot.blockAt(new Vec3(Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z))).type);
             //console.log(blockWater(bot, Math.floor(myMove.x), Math.floor(myMove.y), Math.floor(myMove.z)));
             //stuff here(!!!)
             busyBuilding = false;
@@ -2456,7 +2584,7 @@ bot.once("spawn", () => {
 
             //if (lookAtNextDelay <= 0) {
             if (botMove.jump) {botMove.faceBackwards = -2;}
-            if (botMove.mlg <= 0 && botMove.bucketTimer <= 0) {
+            if (botMove.mlg <= 0 && botMove.bucketTimer <= 0 && !jumpTarget) {
                 if (botMove.faceBackwards <= 0) {
                     bot.lookAt(new Vec3(myMove.x + 0.5, botLookAtY, myMove.z + 0.5), true);
                 } else {
@@ -2510,7 +2638,17 @@ bot.once("spawn", () => {
             //console.log("equip default " + onPath);
         }
         if (!bot.targetDigBlock) {botLookAtY = bot.entity.position.y + 1.6;}
-        if (botSearchingPath <= 0 || onPath && movesToGo.length > 4) {
+        var shouldJumpSprintOnPath = true;
+        for (var i = lastPos.currentMove + 1 - 1; i > lastPos.currentMove - 6 && i > 0; i--) {
+            //console.log(movesToGo[i].blockActions + ", " + movesToGo[i].blockDestructions);
+            if (movesToGo[i].blockActions.length > 0 || movesToGo[i].blockDestructions.length > 0) {
+                shouldJumpSprintOnPath = false;
+            }
+        }
+        if (shouldJumpSprintOnPath) {
+            jumpSprintOnMoves(new PlayerState(bot, simControl), 2);
+        }
+        if ((botSearchingPath <= 0 || (onPath && movesToGo.length > 4)) && !jumpTarget) {
             bot.setControlState("jump", botMove.jump);
             bot.setControlState("forward", botMove.forward);
             bot.setControlState("back", botMove.back);
@@ -2518,7 +2656,7 @@ bot.once("spawn", () => {
             bot.setControlState("right", botMove.right);
             bot.setControlState("sprint", botMove.sprint);
             bot.setControlState("sneak", botMove.sneak);
-        } else {
+        } else if (!jumpTarget) {
             bot.clearControlStates();
         }
         //console.log(JSON.stringify(botMove) + ", " + botDestinationTimer);
@@ -2551,8 +2689,8 @@ bot.once("spawn", () => {
                 bot.setControlState("jump", false);
             }
             strafeTimer--;
-            if (JSON.stringify(target.type) == '"player"' && JSON.stringify(target.username) != '"Generel_Schwerz"') {bot.lookAt(target.position.offset(0, 1.6, 0));}
-            if (JSON.stringify(target.type) == '"player"' && JSON.stringify(target.username) != '"Generel_Schwerz"' && attackTimer < 0.85 | dist3d(bot.entity.position.x, bot.entity.position.y + 1.6, bot.entity.position.z, target.position.x, target.position.y + 1.6, target.position.z) <= botRange) {
+            if (JSON.stringify(target.type) == '"player"' && JSON.stringify(target.username) != '"Vakore"') {bot.lookAt(target.position.offset(0, 1.6, 0));}
+            if (JSON.stringify(target.type) == '"player"' && JSON.stringify(target.username) != '"Vakore"' && attackTimer < 0.85 | dist3d(bot.entity.position.x, bot.entity.position.y + 1.6, bot.entity.position.z, target.position.x, target.position.y + 1.6, target.position.z) <= botRange) {
                 strafeTimer--;
                 //bot.setControlState("sprint", false);
                 if (attackTimer >= 1) {
@@ -2576,11 +2714,57 @@ bot.once("spawn", () => {
 });
 
 
-bot.on("physicsTick", () => {
-});
+  bot.on("physicsTick", () => {
+    var target = bot.nearestEntity();
+    if (jumpTarget) {
+        //console.log(jumpTargets);
+        if (/*dist3d(bot.entity.position.x, bot.entity.position.y, bot.entity.position.z, jumpTarget.x, jumpTarget.y, jumpTarget.z) < 0.5 || */bot.entity.onGround) {
+            /*jumpTargets.splice(jumpTargets.length - 1, 1);
+            if (jumpTargets.length > 0) {
+                jumpTarget = jumpTargets[jumpTargets.length - 1];
+            } else {
+                jumpTarget = false;
+                bot.setControlState("forward", false);
+                bot.setControlState("sprint", false);
+                bot.setControlState("jump", false);
+            }*/
+            if (movesToGo[lastPos.currentMove]) {
+                for (var i = 0; i < movesToGo.length; i++) {
+                    if (dist3d(bot.entity.position.x, bot.entity.position.y, bot.entity.position.z, movesToGo[i].x, movesToGo[i].y, movesToGo[i].z) <
+                        dist3d(bot.entity.position.x, bot.entity.position.y, bot.entity.position.z, movesToGo[lastPos.currentMove].x, movesToGo[lastPos.currentMove].y, movesToGo[lastPos.currentMove].z)) {
+                        lastPos.currentMove = i;
+                    }
+                }
+                movesToGo.splice(lastPos.currentMove + 1, movesToGo.length);
+            }
+            console.log(lastPos.currentMove);
+            jumpTarget = false;
+            jumpTargets = [];
+            myStates = [];
+            var shouldJumpSprintOnPath = true;
+            if (lastPos.currentMove > -1 && movesToGo.length > 0 && movesToGo[lastPos.currentMove]) {
+                for (var i = lastPos.currentMove + 1 - 1; i > lastPos.currentMove - 6 && i > 0; i--) {
+                    //console.log(movesToGo[i].blockActions + ", " + movesToGo[i].blockDestructions);
+                    if (movesToGo[i].blockActions.length > 0 || movesToGo[i].blockDestructions.length > 0) {
+                        shouldJumpSprintOnPath = false;
+                    }
+                }
+                if (shouldJumpSprintOnPath && lastPos.currentMove > -1) {
+                    jumpSprintOnMoves(new PlayerState(bot, simControl), 2);
+                }
+            }
+        }
+        if (jumpTarget && target) {
+            bot.setControlState("forward", true);
+            bot.setControlState("sprint", true);
+            bot.setControlState("jump", true);
+            bot.lookAt(new Vec3(jumpTarget.x, /*jumpTarget.y*/target.position.y + 1.6, jumpTarget.z), 100);
+        }
+    }
+  });
 
 bot.on("chat", function (username, message) {
-    if (username != bot.username && username == 'Generel_Schwerz' | username == '"Generel_Schwerz"' | username == "'Generel_Schwerz'") {
+    if (true || username != bot.username && username == 'Vakore' | username == '"Vakore"' | username == "'Vakore'") {
         var myMessage = message.split(" ");
         switch (myMessage[0]) {
             case "bug":
@@ -2666,7 +2850,7 @@ bot.on("chat", function (username, message) {
                 console.log("is it standable? " + blockStand(bot, Math.floor(bot.entity.position.x), Math.floor(bot.entity.position.y), Math.floor(bot.entity.position.z)));
             break;
             case "openYourEyes":
-                mineflayerViewer(bot, {port: 3000, viewDistance: 4});
+                //mineflayerViewer(bot, {port: 3000, viewDistance: 4});
             break;
             case "tpa":
                 //bot.chat("/tpa");
@@ -2699,7 +2883,7 @@ bot.on("chat", function (username, message) {
                     lastPos.currentMove -= (bestOne[0] + 1);
                     movesToGo.splice(0, bestOne[0] + 1);
                 }
-                // bot.chat("/particle spit " + movesToGo[0].x + " " + movesToGo[0].y + " " + movesToGo[0].z);
+                bot.chat("/particle spit " + movesToGo[0].x + " " + movesToGo[0].y + " " + movesToGo[0].z);
             break;
             case "fixPath":
                 findPath(bot, movesToGo[0].x, movesToGo[0].y, movesToGo[0].z, true);
@@ -2769,6 +2953,24 @@ bot.on("chat", function (username, message) {
             break;
             case "activate":bot.activateItem(false);break;
             case "deactivate":bot.deactivateItem(false);break;
+            case "stop":
+                jumpTarget = false;
+                jumpTargets = [];
+                bot.clearControlStates();
+                //console.log(JSON.stringify(botPvpRandoms));
+                //console.log(JSON.stringify(botPvpRandomsDamages));
+            break;
+            case "simulateJump":
+                jumpTarget = false;
+                jumpTargets = [];
+                myStates = [];
+                var mySimCount = 2;
+                if (parseInt(myMessage[1])) {
+                    mySimCount = parseInt(myMessage[1]);
+                    console.log("mySimCount is " + myMessage[1]);
+                }
+                jumpSprintOnMoves(new PlayerState(bot, simControl), mySimCount);
+            break;
         }
         /*bot.chat(message);
         switch (message) {

@@ -46,10 +46,23 @@
     prismarine-physics "^1.3.1"
     vec3 "^0.1.7"
 
-"@nxg-org/mineflayer-util-plugin@^1.3.14", "@nxg-org/mineflayer-util-plugin@^1.3.15":
+"@nxg-org/mineflayer-util-plugin@^1.3.14":
   version "1.3.15"
   resolved "https://registry.yarnpkg.com/@nxg-org/mineflayer-util-plugin/-/mineflayer-util-plugin-1.3.15.tgz#e490bcfad307a1a5bcfc06d4e75b24ac5965636b"
   integrity sha512-WKtqn81hYychtE5CfF4eA15eeFim/sudTI3qrty5BdPrvLcldWl4AgGLx/Z8eRYUWmiGAVSFH9nYNPkN1m2x0A==
+  dependencies:
+    minecraft-data "^2.97.0"
+    mineflayer "^3.11.2"
+    mineflayer-pathfinder "^1.8.0"
+    prismarine-block "^1.10.3"
+    prismarine-entity "^1.2.0"
+    prismarine-item "^1.11.1"
+    vec3 "^0.1.7"
+
+"@nxg-org/mineflayer-util-plugin@^1.3.16":
+  version "1.3.16"
+  resolved "https://registry.yarnpkg.com/@nxg-org/mineflayer-util-plugin/-/mineflayer-util-plugin-1.3.16.tgz#a262f6d1c0edc21d20c2b29f6c899449e1271686"
+  integrity sha512-PGn+vFhabkMJJndFNl6YpxbsMxV9+SWdprY3aXaU5oLrw/BNv0lf/19BZwRBWnOEYbJUBcDT51Q3Z19a+VGY8Q==
   dependencies:
     minecraft-data "^2.97.0"
     mineflayer "^3.11.2"
@@ -89,15 +102,10 @@
   resolved "https://registry.yarnpkg.com/@types/cors/-/cors-2.8.12.tgz#6b2c510a7ad7039e98e7b8d3d6598f4359e5c080"
   integrity sha512-vt+kDhq/M2ayberEtJcIN/hxXy1Pk+59g2FV/ZQceeaTyCtCucjL2Q7FXlFjtWn4n15KCr1NE2lNNFhp0lEThw==
 
-"@types/node@>=10.0.0":
-  version "17.0.9"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.9.tgz#0b7f161afb5b1cc12518d29b2cdc7175d5490628"
-  integrity sha512-5dNBXu/FOER+EXnyah7rn8xlNrfMOQb/qXnw4NQgLkCygKBKhdmF/CA5oXVOKZLBEahw8s2WP9LxIcN/oDDRgQ==
-
-"@types/node@^16.11.11":
-  version "16.11.20"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-16.11.20.tgz#334b116c6d41143c92599965e14b5a3dd68c5d1f"
-  integrity sha512-lAKaZ0Lc1Umwd0AqLr6iy5U8u/1DpK7/JzNgQn9cMMUk2mFR8bbhEP8BQrI9Cm5CU0bOVCaWbkGBvgqKMOJHsw==
+"@types/node@>=10.0.0", "@types/node@^17.0.14":
+  version "17.0.14"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-17.0.14.tgz#33b9b94f789a8fedd30a68efdbca4dbb06b61f20"
+  integrity sha512-SbjLmERksKOGzWzPNuW7fJM7fk3YXVTFiZWB/Hs99gwhk+/dnrQRPBQjPW9aO+fi1tAffi9PrwFvsmOKmDTyng==
 
 "@xboxreplay/errors@^0.1.0":
   version "0.1.0"

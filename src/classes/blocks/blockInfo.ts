@@ -4,13 +4,13 @@ import md from "minecraft-data";
 import { MovementEnum } from "../utils/constants";
 import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "../utils/util";
 import { PathNode } from "../nodes/node";
-import blockData, { Block } from "prismarine-block"
+import { Block, loader as PBLoader } from "prismarine-block"
 import * as interactable from "./interactable.json"
 ;
 
 const noNeedToBreakNames = new Set(["air", "cave_air", "void_air", "lava", "flowing_lava", "water", "flowing_water"]);
 
-export enum TypeCheck {
+export enum BlockCheck {
     AIR,
     LIQUID,
     WATER,
@@ -28,19 +28,20 @@ export enum TypeCheck {
 export class BlockInfo {
     // private data: md.IndexedData;
 
-    public readonly autoReplaceBlockIDs: Set<number> = new Set();
-    public readonly airBlockIDs: Set<number> = new Set();
+    public readonly autoReplaceIDs: Set<number> = new Set();
+    public readonly airIDs: Set<number> = new Set();
     public readonly treatAsLiquidIDs: Set<number> = new Set();
-    public readonly treatAsWaterBlockIDs: Set<number> = new Set();
-    public readonly lavaBlockIDs: Set<number> = new Set();
-    public readonly cantBreakBlockIDs: Set<number> = new Set();
-    public readonly avoidBlockIDs: Set<number> = new Set();
+    public readonly treatAsWaterIDs: Set<number> = new Set();
+    public readonly lavaIDs: Set<number> = new Set();
+    public readonly cantBreakIDs: Set<number> = new Set();
+    public readonly avoidIDs: Set<number> = new Set();
     public readonly gravityBlockIDs: Set<number> = new Set();
     public readonly climbableIDs: Set<number> = new Set();
     public readonly replaceableIDs: Set<number> = new Set();
     public readonly fenceIDs: Set<number> = new Set();
     public readonly carpetIDs: Set<number> = new Set();
     public readonly openableIDs: Set<number> = new Set();
+    public readonly slabIDs: Set<number> = new Set();
 
     public readonly blockData;
 
@@ -48,25 +49,26 @@ export class BlockInfo {
     public readonly lilypadID?: number;
 
     constructor(private bot: Bot, private data: md.IndexedData) {
-      
+        this.blockData = PBLoader(bot.version)
    
-        this.autoReplaceBlockIDs = new Set();
-        this.treatAsWaterBlockIDs = new Set();
-        this.lavaBlockIDs = new Set();
-        this.airBlockIDs = new Set();
+        this.autoReplaceIDs = new Set();
+        this.treatAsWaterIDs = new Set();
+        this.lavaIDs = new Set();
+        this.airIDs = new Set();
         this.cobwebIDs = new Set();
         if (this.data.blocksByName.cobweb) this.cobwebIDs.add(this.data.blocksByName.cobweb.id);
         if (this.data.blocksByName.web) this.cobwebIDs.add(this.data.blocksByName.web.id);
         this.lilypadID = this.data.blocksByName.lilypad?.id;
 
         for (const blockName in this.data.blocksByName) {
-            if (noNeedToBreakNames.has(blockName)) this.autoReplaceBlockIDs.add(this.data.blocksByName[blockName].id);
-            if (blockName.includes("lava")) this.lavaBlockIDs.add(this.data.blocksByName[blockName].id);
-            if (blockName.includes("water")) this.treatAsWaterBlockIDs.add(this.data.blocksByName[blockName].id);
-            if (blockName.includes("air")) this.airBlockIDs.add(this.data.blocksByName[blockName].id);
+            if (noNeedToBreakNames.has(blockName)) this.autoReplaceIDs.add(this.data.blocksByName[blockName].id);
+            if (blockName.includes("lava")) this.lavaIDs.add(this.data.blocksByName[blockName].id);
+            if (blockName.includes("water")) this.treatAsWaterIDs.add(this.data.blocksByName[blockName].id);
+            if (blockName.includes("air")) this.airIDs.add(this.data.blocksByName[blockName].id);
+            if (blockName.includes("slab")) this.slabIDs.add(this.data.blocksByName[blockName].id);
         }
 
-        this.blockData = require('prismarine-block')(bot.version)
+
 
         // this.canDig = true
         // this.digCost = 1
@@ -80,21 +82,21 @@ export class BlockInfo {
         // this.allowSprinting = true
         // this.dontMineUnderFallingBlock = true
     
-        this.cantBreakBlockIDs = new Set()
-        this.cantBreakBlockIDs.add(this.data.blocksByName.chest.id)
-        this.cantBreakBlockIDs.add(this.data.blocksByName.wheat.id)
+        this.cantBreakIDs = new Set()
+        this.cantBreakIDs.add(this.data.blocksByName.chest.id)
+        this.cantBreakIDs.add(this.data.blocksByName.wheat.id)
     
         this.data.blocksArray.forEach(block => {
           if (block.diggable) return
-          this.cantBreakBlockIDs.add(block.id)
+          this.cantBreakIDs.add(block.id)
         })
     
-        this.avoidBlockIDs = new Set()
-        this.avoidBlockIDs.add(this.data.blocksByName.fire.id)
-        this.avoidBlockIDs.add(this.data.blocksByName.wheat.id)
-        if (this.data.blocksByName.cobweb) this.avoidBlockIDs.add(this.data.blocksByName.cobweb.id)
-        if (this.data.blocksByName.web) this.avoidBlockIDs.add(this.data.blocksByName.web.id)
-        this.avoidBlockIDs.add(this.data.blocksByName.lava.id)
+        this.avoidIDs = new Set()
+        this.avoidIDs.add(this.data.blocksByName.fire.id)
+        this.avoidIDs.add(this.data.blocksByName.wheat.id)
+        if (this.data.blocksByName.cobweb) this.avoidIDs.add(this.data.blocksByName.cobweb.id)
+        if (this.data.blocksByName.web) this.avoidIDs.add(this.data.blocksByName.web.id)
+        this.avoidIDs.add(this.data.blocksByName.lava.id)
     
         this.treatAsLiquidIDs = new Set()
         this.treatAsLiquidIDs.add(this.data.blocksByName.water.id)
@@ -150,47 +152,47 @@ export class BlockInfo {
 
 
     //TODO: Perhaps convert to Object, Object.values().every() would also work.
-    getBlockInfo(block: Block | null, ...wantedInfo: TypeCheck[]) {
+    getBlockInfo(block: Block | null, ...wantedInfo: BlockCheck[]) {
         if (!block) {
             return false;
         }
         const checks = [];
         for (const wanted of wantedInfo) {
             switch (wanted) {
-                case TypeCheck.AIR:
-                    checks.push(this.airBlockIDs.has(block.type) && block.shapes.length === 0);
+                case BlockCheck.AIR:
+                    checks.push(this.airIDs.has(block.type) && block.shapes.length === 0);
                     break;
-                case TypeCheck.WATER:
-                    checks.push(this.treatAsWaterBlockIDs.has(block.type));
+                case BlockCheck.WATER:
+                    checks.push(this.treatAsWaterIDs.has(block.type));
                     break;
-                case TypeCheck.LAVA:
-                    checks.push(this.lavaBlockIDs.has(block.type));
+                case BlockCheck.LAVA:
+                    checks.push(this.lavaIDs.has(block.type));
                     break;
-                case TypeCheck.LIQUID:
-                    checks.push(this.treatAsWaterBlockIDs.has(block.type) || this.lavaBlockIDs.has(block.type));
+                case BlockCheck.LIQUID:
+                    checks.push(this.treatAsWaterIDs.has(block.type) || this.lavaIDs.has(block.type));
                     break;
-                case TypeCheck.COBWEB:
+                case BlockCheck.COBWEB:
                     checks.push(this.cobwebIDs.has(block.type));
                     break;
-                case TypeCheck.LILYPAD:
+                case BlockCheck.LILYPAD:
                     checks.push(block.type === this.lilypadID);
                     break;
-                case TypeCheck.REPLACEABLE:
-                    checks.push(block.shapes.length === 0 || (!this.canStandOnBlock(block) && this.autoReplaceBlockIDs.has(block.type)));
+                case BlockCheck.REPLACEABLE:
+                    checks.push(block.shapes.length === 0 || (!this.canStandOnBlock(block) && this.autoReplaceIDs.has(block.type)));
                     break;
-                case TypeCheck.DIGGABLE:
+                case BlockCheck.DIGGABLE:
                     checks.push(block.hardness && this.bot.canDigBlock(block));
                     break;
-                case TypeCheck.SOLID:
+                case BlockCheck.SOLID:
                     checks.push(this.isBlockSolid(block));
                     break;
-                case TypeCheck.WALKABLE:
+                case BlockCheck.WALKABLE:
                     checks.push(this.canWalkOnBlock(block));
                     break;
-                case TypeCheck.STANDABLE:
+                case BlockCheck.STANDABLE:
                     checks.push(this.canStandOnBlock(block));
                     break;
-                case TypeCheck.BREAKANDREPLACE:
+                case BlockCheck.BREAKANDREPLACE:
                     checks.push(this.shouldBreakBeforePlaceBlock(block))
                     break;
             }
@@ -202,7 +204,7 @@ export class BlockInfo {
         // const block = this.bot.blockAt(new Vec3(x, y, z));
         // if (!block) throw cantGetBlockError("shouldBreakBeforePlaceBlock", x, y, z);
         if (block.shapes.length === 0) return false;
-        else if (!this.canStandOnBlock(block) && !this.autoReplaceBlockIDs.has(block.type)) return true;
+        else if (!this.canStandOnBlock(block) && !this.autoReplaceIDs.has(block.type)) return true;
         return false;
     }
 
@@ -249,11 +251,11 @@ export class BlockInfo {
     }
 
     isWater(block: Block): boolean {
-        return !!(block && this.treatAsWaterBlockIDs.has(block.type));
+        return !!(block && this.treatAsWaterIDs.has(block.type));
     }
 
     isAir(block: Block): boolean {
-        return !!(block && this.airBlockIDs.has(block.type) && block.shapes.length === 0);
+        return !!(block && this.airIDs.has(block.type) && block.shapes.length === 0);
     }
 
     isCobweb(block: Block): boolean {
@@ -265,7 +267,7 @@ export class BlockInfo {
     }
 
     isLava(block: Block): boolean {
-        return !!(block && this.lavaBlockIDs.has(block.type)); // will auto assume false if not is not found from import.
+        return !!(block && this.lavaIDs.has(block.type)); // will auto assume false if not is not found from import.
     }
 
     isLiquid(block: Block): boolean {

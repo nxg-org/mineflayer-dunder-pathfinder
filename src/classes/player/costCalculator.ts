@@ -122,7 +122,7 @@ export class CostInfo {
         return delta.x * delta.x + delta.z * delta.z <= r2 && Math.abs(delta.y) < 0.001 && (state.onGround || state.isInWater);
     }
 
-    getPlacementCost(currentBlocks: number, toPlace: BlockInteraction[]) {
+    getPlacementCost(currentBlocks: number, toPlace: any[]) {
         return currentBlocks / (currentBlocks - toPlace.length);
     }
 }

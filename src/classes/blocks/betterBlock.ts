@@ -48,7 +48,7 @@ export class BetterBlock {
             this.climbable = blockInfo.climbableIDs.has(block.type);
             this.safe =
                 (block.boundingBox === "empty" || this.climbable || blockInfo.carpetIDs.has(block.type)) &&
-                !blockInfo.avoidBlockIDs.has(block.type);
+                !blockInfo.avoidIDs.has(block.type);
             this.physical = block.boundingBox === "block" && !blockInfo.fenceIDs.has(block.type);
             this.replaceable = blockInfo.replaceableIDs.has(block.type) && !this.physical;
             this.liquid = blockInfo.treatAsLiquidIDs.has(block.type);

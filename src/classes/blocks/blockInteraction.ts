@@ -1,4 +1,5 @@
 import type { Vec3 } from "vec3";
+import { BetterBlockPos } from "./betterBlockPos";
 
 export enum IBlockType {
     PLACE,
@@ -6,15 +7,15 @@ export enum IBlockType {
 }
 export class BlockInteraction {
     public hash: string;
-    constructor(public type: IBlockType, public destination: Vec3, public reference?: Vec3, public blockType?: string) {
+    constructor(public type: IBlockType, public dest: BetterBlockPos, public reference?: BetterBlockPos, public blockType?: string) {
         this.hash =
             type +
             ":" +
-            destination.x +
+            dest.x +
             "," +
-            destination.y +
+            dest.y +
             "," +
-            destination.z +
+            dest.z +
             ":" +
             (reference ? reference.x + "," + reference.y + "," + reference.z : "none");
     }

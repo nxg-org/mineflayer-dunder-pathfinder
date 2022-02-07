@@ -33,6 +33,10 @@ export class BetterBlockPos {
         this.z = Math.floor(z);
     }
 
+    asVec3(): Vec3 {
+        return this as unknown as Vec3;
+    }
+
     /**
      * There is no exact conversion to TypeScript here, check this fully later.
      */

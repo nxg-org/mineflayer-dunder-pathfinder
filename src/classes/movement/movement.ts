@@ -1,67 +1,76 @@
 import { Vec3 } from "vec3";
 import { MAX_COST, MovementEnum } from "../utils/constants";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
-import { BlockInteraction } from "../blocks/blockInteraction";
+import { BlockInteraction, IBlockType } from "../blocks/blockInteraction";
 import { PathNode } from "../nodes/node";
-const {PlayerState} = require("prismarine-physics")
-
-
+import { PathContext } from "../path/PathContext";
+import { MovementData } from "./movementData";
+import { CostInfo } from "../player/costCalculator";
+import { MovementInfo } from "./movementsInfo";
 
 export abstract class BaseMovement {
-
-    public readonly toBreak:  BetterBlockPos[];
-    public readonly toPlace: BetterBlockPos[];
+    public readonly ctx: PathContext;
+    private state: MovementData;
     public cost: number;
 
+    public readonly toBreak: BlockInteraction[];
+    public readonly toPlace: BlockInteraction[];
 
     protected validPositionsCached?: Set<BetterBlockPos>;
     protected toBreakCached?: BetterBlockPos[];
     protected toPlaceCached?: BetterBlockPos[];
 
-    constructor (public readonly src: BetterBlockPos, public readonly dest: BetterBlockPos) {
-        this.toBreak = []
-        this.toPlace = []
+    constructor(
+        ctx: PathContext,
+        public readonly src: PathNode,
+        public readonly dest: BetterBlockPos,
+        toBreak: BetterBlockPos[],
+        toPlace: BetterBlockPos[]
+    ) {
+        this.ctx = ctx;
+        this.toBreak = toBreak.map(b => new BlockInteraction(IBlockType.BREAK, b));
+        this.toPlace = toBreak.map(b => new BlockInteraction(IBlockType.PLACE, b));
         this.cost = MAX_COST;
+        this.state = MovementData.DEFAULT(this.ctx.currentTick);
     }
 
-
-
-    abstract calculateCost(): number;
+    abstract calculateInfo(): MovementData;
     abstract calculateValidPositions(): Set<BetterBlockPos>;
-    abstract prepared(playerState: any): boolean;
 
-
-     public getValidPositions(): Set<BetterBlockPos> {
-        if (this.validPositionsCached == null) {
+    public getValidPositions(): Set<BetterBlockPos> {
+        if (!this.validPositionsCached || this.validPositionsCached.size == 0) {
             this.validPositionsCached = this.calculateValidPositions();
             // Objects.requireNonNull(validPositionsCached);
         }
         return this.validPositionsCached;
     }
 
+    /**
+     *
+     * @param playerState ACTUALLY PlayerState from prismarine-physics.
+     * @returns
+     */
+    protected playerInValidPosition(): boolean {
+        return this.getValidPositions().has(this.ctx.bbpAtFeet()); //|| this.getValidPositions().has(((PathingBehavior) baritone.getPathingBehavior()).pathStart());
+    }
 
     /**
-     * 
-     * @param playerState ACTUALLY PlayerState from prismarine-physics.
-     * @returns 
+     * Previously known as "update", instead renamed due to applying pre-calc'd data to bot.
+     * @returns
      */
-    protected  playerInValidPosition(playerState: any): boolean {
-        return this.getValidPositions().has(playerState.position.floored()); //|| this.getValidPositions().has(((PathingBehavior) baritone.getPathingBehavior()).pathStart());
+    public async applyState() {
+        // await this.ctx.bot.look(this.state.target.yaw, this.state.target.pitch, this.state.target.forceRotations);
+        for (let ind = this.state.minInputTime; ind <= this.state.maxInputTime; ind++) {
+            if (this.state.inputStatesAndTimes[ind]) {
+                this.state.inputStatesAndTimes[ind].apply(this.ctx);
+            }
+            const tmp = this.state.targetsByTicks[ind];
+            if (tmp) {
+                this.ctx.bot.look(tmp.yaw, tmp.pitch, tmp.forceRotations);
+            }
+            await this.ctx.bot.waitForTicks(1);
+        }
     }
-
-
-    public update(): boolean {
-
-    }
-
-
-
-
-
-    public updateState(playerState: any): any {
-
-    }
-
 }
 
 export class Movement extends Vec3 {

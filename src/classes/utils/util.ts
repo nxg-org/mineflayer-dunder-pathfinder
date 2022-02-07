@@ -26,7 +26,7 @@ export function cantGetItemError(functionName: string, itemName: string, destina
 
 export function parentBrokeInPast(x: number, y: number, z: number, parentNode: PathNode): boolean {
     while (parentNode.parent) {
-        for (const block of parentNode.brokenBlocks) {
+        for (const block of (parentNode as any).brokenBlocks) {
             if (block[0] == x && block[1] == y && block[2] == z) return true;
         }
         parentNode = parentNode.parent;
@@ -36,7 +36,7 @@ export function parentBrokeInPast(x: number, y: number, z: number, parentNode: P
 
 export function parentBrokeInPastBlock(blockPos: {x: number, y: number, z: number}, parentNode: PathNode): boolean {
     while (parentNode.parent) {
-        for (const block of parentNode.brokenBlocks) {
+        for (const block of (parentNode as any).brokenBlocks) {
             if (block[0] == blockPos.x && block[1] == blockPos.y && block[2] == blockPos.z) return true;
         }
         parentNode = parentNode.parent;

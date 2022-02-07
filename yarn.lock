@@ -644,7 +644,7 @@ minecraft-protocol@^1.26.5:
     uuid-1345 "^1.0.1"
     yggdrasil "^1.4.0"
 
-mineflayer-pathfinder@^1.8.0:
+mineflayer-pathfinder@^1.8.0, mineflayer-pathfinder@^1.9.1:
   version "1.9.1"
   resolved "https://registry.yarnpkg.com/mineflayer-pathfinder/-/mineflayer-pathfinder-1.9.1.tgz#c9fea961b8f6fb48c81ba7c31e98bd37d07ea294"
   integrity sha512-4mslXjn7NU5NNXUsYfieQwaycUzAg9Henzqs/ZaBT1Hc53VwmsQK1M2TEqFCOwdU8Q6Urk0LcY/87SBPIz8BZQ==

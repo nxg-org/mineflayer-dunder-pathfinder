@@ -20,6 +20,7 @@ export class PathNode {
      */
     public readonly estimatedCostToGoal: number;
 
+    public readonly brokenBlocks: any[] = [];
     /**
      * Total cost of getting from start to here
      * Mutable and changed by PathFinder
@@ -84,5 +85,9 @@ export class PathNode {
         //return Objects.equals(this.pos, other.pos) && Objects.equals(this.goal, other.goal);
 
         return this.x == other.x && this.y == other.y && this.z == other.z;
+    }
+
+    public toBBP(world: any) {
+        return new BetterBlockPos(world, this.x, this.y, this.z)
     }
 }

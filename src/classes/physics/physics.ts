@@ -29,6 +29,7 @@ export class PhysicsSettings {
     public playerSpeed: number = 0.1;
     public sprintSpeed: number = 0.3;
     public sneakSpeed: number = 0.3;
+    public usingItemSpeed: number = 0.2;
     public stepHeight: number = 0.6; // how much height can the bot step on without jump
     public negligeableVelocity: number = 0.003; // actually 0.005 for 1.8; but seems fine
     public soulsandSpeed: number = 0.4;
@@ -88,18 +89,18 @@ export class Physics {
     public supportFeature: ReturnType<typeof makeSupportFeature>;
     public blockSlipperiness: { [name: string]: number };
 
-    private slimeBlockId: number;
-    private soulsandId: number;
-    private honeyblockId: number;
-    private webId: number;
-    private waterId: number;
-    private lavaId: number;
-    private ladderId: number;
-    private vineId: number;
-    private bubblecolumnId: number;
-    private waterLike: Set<number>;
+    protected slimeBlockId: number;
+    protected soulsandId: number;
+    protected honeyblockId: number;
+    protected webId: number;
+    protected waterId: number;
+    protected lavaId: number;
+    protected ladderId: number;
+    protected vineId: number;
+    protected bubblecolumnId: number;
+    protected waterLike: Set<number>;
 
-    private physics: PhysicsSettings;
+    protected physics: PhysicsSettings;
 
     constructor(mcData: md.IndexedData, world: any /* prismarine-world */) {
         this.data = mcData;
@@ -182,8 +183,8 @@ export class Physics {
     }
 
     moveEntity(entity: PlayerState, dx: number, dy: number, dz: number) {
-        const vel = entity.vel;
-        const pos = entity.pos;
+        const vel = entity.velocity;
+        const pos = entity.position;
 
         if (entity.isInWeb) {
             dx *= 0.25;
@@ -199,7 +200,7 @@ export class Physics {
         const oldVelY = dy;
         let oldVelZ = dz;
 
-        if (entity.control.sneak && entity.onGround) {
+        if (entity.control.movements.sneak && entity.onGround) {
             const step = 0.05;
 
             // In the 3 loops bellow, y offset should be -1, but that doesnt reproduce vanilla behavior.
@@ -330,7 +331,7 @@ export class Physics {
         if (dx !== oldVelX) vel.x = 0;
         if (dz !== oldVelZ) vel.z = 0;
         if (dy !== oldVelY) {
-            if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.control.sneak) {
+            if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.control.movements.sneak) {
                 vel.y = -vel.y;
             } else {
                 vel.y = 0;
@@ -374,7 +375,7 @@ export class Physics {
             }
         }
         if (this.supportFeature("velocityBlocksOnTop")) {
-            const blockBelow = this.world.getBlock(entity.pos.floored().offset(0, -0.5, 0));
+            const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
             if (blockBelow) {
                 if (blockBelow.type === this.soulsandId) {
                     vel.x *= this.physics.soulsandSpeed;
@@ -400,7 +401,7 @@ export class Physics {
         const sin = Math.sin(yaw);
         const cos = Math.cos(yaw);
 
-        const vel = entity.vel;
+        const vel = entity.velocity;
         vel.x += strafe * cos - forward * sin;
         vel.z += forward * cos + strafe * sin;
     }
@@ -574,8 +575,8 @@ export class Physics {
 
 
     moveEntityWithHeading(entity: PlayerState, strafe: number, forward: number) {
-        const vel = entity.vel;
-        const pos = entity.pos;
+        const vel = entity.velocity;
+        const pos = entity.position;
 
         const gravityMultiplier = vel.y <= 0 && entity.slowFalling > 0 ? this.physics.slowFalling : 1;
 
@@ -596,7 +597,7 @@ export class Physics {
                 // Client-side sprinting (don't rely on server-side sprinting)
                 // setSprinting in LivingEntity.java
                 playerSpeedAttribute = attributes.deleteAttributeModifier(playerSpeedAttribute, this.physics.sprintingUUID); // always delete sprinting (if it exists)
-                if (entity.control.sprint) {
+                if (entity.control.movements.sprint) {
                     if (!attributes.checkAttributeModifier(playerSpeedAttribute, this.physics.sprintingUUID)) {
                         playerSpeedAttribute = attributes.addAttributeModifier(playerSpeedAttribute, {
                             uuid: this.physics.sprintingUUID,
@@ -617,12 +618,12 @@ export class Physics {
             if (this.isOnLadder(pos)) {
                 vel.x = math.clamp(-this.physics.ladderMaxSpeed, vel.x, this.physics.ladderMaxSpeed);
                 vel.z = math.clamp(-this.physics.ladderMaxSpeed, vel.z, this.physics.ladderMaxSpeed);
-                vel.y = Math.max(vel.y, entity.control.sneak ? 0 : -this.physics.ladderMaxSpeed);
+                vel.y = Math.max(vel.y, entity.control.movements.sneak ? 0 : -this.physics.ladderMaxSpeed);
             }
 
             this.moveEntity(entity, vel.x, vel.y, vel.z);
 
-            if (this.isOnLadder(pos) && (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.control.jump))) {
+            if (this.isOnLadder(pos) && (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.control.movements.jump))) {
                 vel.y = this.physics.ladderClimbSpeed; // climb ladder
             }
 
@@ -669,8 +670,8 @@ export class Physics {
     }
 
     simulatePlayer(entity: PlayerState) {
-        const vel = entity.vel;
-        const pos = entity.pos;
+        const vel = entity.velocity;
+        const pos = entity.position;
 
         const waterBB = this.getPlayerBB(pos).contract(0.001, 0.401, 0.001);
         const lavaBB = this.getPlayerBB(pos).contract(0.1, 0.4, 0.1);
@@ -684,17 +685,17 @@ export class Physics {
         if (Math.abs(vel.z) < this.physics.negligeableVelocity) vel.z = 0;
 
         // Handle inputs
-        if (entity.control.jump || entity.jumpQueued) {
+        if (entity.control.movements.jump || entity.jumpQueued) {
             if (entity.jumpTicks > 0) entity.jumpTicks--;
             if (entity.isInWater || entity.isInLava) {
                 vel.y += 0.04;
             } else if (entity.onGround && entity.jumpTicks === 0) {
-                const blockBelow = this.world.getBlock(entity.pos.floored().offset(0, -0.5, 0));
+                const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
                 vel.y = Math.fround(0.42) * (blockBelow && blockBelow.type === this.honeyblockId ? this.physics.honeyblockJumpSpeed : 1);
                 if (entity.jumpBoost > 0) {
                     vel.y += 0.1 * entity.jumpBoost;
                 }
-                if (entity.control.sprint) {
+                if (entity.control.movements.sprint) {
                     const yaw = Math.PI - entity.yaw;
                     vel.x -= Math.sin(yaw) * 0.2;
                     vel.z += Math.cos(yaw) * 0.2;
@@ -706,10 +707,10 @@ export class Physics {
         }
         entity.jumpQueued = false;
 
-        let strafe = ((entity.control.right as unknown as number) - (entity.control.left as unknown as number)) * 0.98;
-        let forward = ((entity.control.forward as unknown as number) - (entity.control.back as unknown as number)) * 0.98;
+        let strafe = ((entity.control.movements.right as unknown as number) - (entity.control.movements.left as unknown as number)) * 0.98;
+        let forward = ((entity.control.movements.forward as unknown as number) - (entity.control.movements.back as unknown as number)) * 0.98;
 
-        if (entity.control.sneak) {
+        if (entity.control.movements.sneak) {
             strafe *= this.physics.sneakSpeed;
             forward *= this.physics.sneakSpeed;
         }

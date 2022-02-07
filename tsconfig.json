@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "es2021",
     "module": "commonjs",
     "declaration": true,
     "strict": true,
@@ -12,6 +12,6 @@
     "forceConsistentCasingInFileNames": true,
     "rootDir": "src/",
     "outDir": "lib/",
-    "lib": ["es6", "dom", "es2017"]
+    "lib": ["es6", "dom", "es2020"]
   }
 }

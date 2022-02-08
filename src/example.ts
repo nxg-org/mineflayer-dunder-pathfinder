@@ -1,6 +1,6 @@
 import { createBot, EquipmentDestination } from "mineflayer";
 import { Vec3 } from "vec3";
-import { TypeCheck } from "./classes/blocks/blockInfo";
+import { BlockCheck } from "./classes/blocks/blockInfo";
 import pathfinder from "./index"
 const { PlayerState } = require("prismarine-physics");
 
@@ -128,7 +128,7 @@ bot.on("chat", (username, message) => {
                                     Math.floor(bot.entity.position.z)
                                 )
                             )!,
-                            TypeCheck.WATER
+                            BlockCheck.WATER
                         )
                 );
                 break;

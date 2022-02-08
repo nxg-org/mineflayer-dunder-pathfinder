@@ -27,6 +27,7 @@ export class PlayerState {
 
     public attributes: any /* dunno yet */;
     public yaw: number;
+    public pitch: number;
     public control: PlayerControls;
 
     public isUsingItem: boolean;
@@ -66,10 +67,9 @@ export class PlayerState {
         // Input only (not modified)
         this.attributes = (bot.entity as any).attributes;
         this.yaw = bot.entity.yaw;
+        this.pitch = bot.entity.pitch;
         this.control = control;
 
-
-        console.log("the fuck?")
         this.isUsingItem = isEntityUsingItem(bot.entity);
         this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
         this.isUsingOffHand = whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
@@ -117,6 +117,7 @@ export class PlayerState {
         // Input only (not modified)
         this.attributes = (bot.entity as any).attributes;
         this.yaw = bot.entity.yaw;
+        this.pitch = bot.entity.pitch;
         this.control = control ?? this.control;
 
         this.isUsingItem = isEntityUsingItem(bot.entity);
@@ -160,5 +161,17 @@ export class PlayerState {
         // dunno what to do about these, ngl.
         (bot as any).jumpTicks = this.jumpTicks;
         (bot as any).jumpQueued = this.jumpQueued;
+        bot.entity.yaw = this.yaw;
+        bot.entity.pitch = this.pitch;
+        bot.controlState = this.control.movements;
+    }
+
+    // public clone() {
+    //     return new PlayerState(this.ctx, this.ctx.bot, this.control)
+    // }
+
+    public getAABB(): AABB {
+        const w = this.ctx.settings.playerHalfWidth
+        return new AABB(this.position.x-w, this.position.y, this.position.z-w, this.position.x + w, this.position.y + this.ctx.settings.playerHeight, this.position.z +w)
     }
 }

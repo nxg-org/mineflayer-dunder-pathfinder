@@ -1,6 +1,6 @@
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { BlockInfo, TypeCheck } from "./blockInfo";
+import { BlockInfo, BlockCheck } from "./blockInfo";
 
 //TODO: create static reference to everything.
 
@@ -55,9 +55,9 @@ export class BetterBlock {
             this.height = block.position.y;
             this.affectedByGravity = blockInfo.gravityBlockIDs.has(block.type);
             this.openable = blockInfo.openableIDs.has(block.type);
-            this.liquid = blockInfo.getBlockInfo(block, TypeCheck.WATER);
-            this.treatAsNoBB = blockInfo.getBlockInfo(block, TypeCheck.SOLID);
-            this.replaceable = !blockInfo.getBlockInfo(block, TypeCheck.BREAKANDREPLACE);
+            this.liquid = blockInfo.getBlockInfo(block, BlockCheck.WATER);
+            this.treatAsNoBB = blockInfo.getBlockInfo(block, BlockCheck.SOLID);
+            this.replaceable = !blockInfo.getBlockInfo(block, BlockCheck.BREAKANDREPLACE);
             for (const shape of block.shapes) {
                 this.height = Math.max(this.height, block.position.y + shape[4]);
             }

@@ -92,14 +92,14 @@ export class PerStatePhysics extends Physics {
     }
 
     getPlayerBB(pos: { x: number; y: number; z: number }): AABB {
-        const w = this.physics.playerHalfWidth;
-        return new AABB(-w, 0, -w, w, this.physics.playerHeight, w).offset(pos.x, pos.y, pos.z);
+        const w = this.settings.playerHalfWidth;
+        return new AABB(-w, 0, -w, w, this.settings.playerHeight, w).offset(pos.x, pos.y, pos.z);
     }
 
     setPositionToBB(bb: AABB, pos: { x: number; y: number; z: number }) {
-        pos.x = bb.minX + this.physics.playerHalfWidth;
+        pos.x = bb.minX + this.settings.playerHalfWidth;
         pos.y = bb.minY;
-        pos.z = bb.minZ + this.physics.playerHalfWidth;
+        pos.z = bb.minZ + this.settings.playerHalfWidth;
     }
 
     getSurroundingBBs(queryBB: AABB): AABB[] {
@@ -213,7 +213,7 @@ export class PerStatePhysics extends Physics {
 
         // Step on block if height < stepHeight
         if (
-            this.physics.stepHeight > 0 &&
+            this.settings.stepHeight > 0 &&
             (entity.onGround || (dy !== oldVelY && oldVelY < 0)) &&
             (dx !== oldVelX || dz !== oldVelZ) &&
             this.extras.doCollisions &&
@@ -224,7 +224,7 @@ export class PerStatePhysics extends Physics {
             const oldVelZCol = dz;
             const oldBBCol = playerBB.clone();
 
-            dy = this.physics.stepHeight;
+            dy = this.settings.stepHeight;
             const queryBB = oldBB.clone().extend(oldVelX, dy, oldVelZ);
             const surroundingBBs = this.getSurroundingBBs(queryBB);
 
@@ -331,11 +331,11 @@ export class PerStatePhysics extends Physics {
                         if (block) {
                             if (this.supportFeature("velocityBlocksOnCollision")) {
                                 if (block.type === this.soulsandId) {
-                                    vel.x *= this.physics.soulsandSpeed;
-                                    vel.z *= this.physics.soulsandSpeed;
+                                    vel.x *= this.settings.soulsandSpeed;
+                                    vel.z *= this.settings.soulsandSpeed;
                                 } else if (block.type === this.honeyblockId) {
-                                    vel.x *= this.physics.honeyblockSpeed;
-                                    vel.z *= this.physics.honeyblockSpeed;
+                                    vel.x *= this.settings.honeyblockSpeed;
+                                    vel.z *= this.settings.honeyblockSpeed;
                                 }
                             }
                             if (block.type === this.webId) {
@@ -345,8 +345,8 @@ export class PerStatePhysics extends Physics {
                                 const aboveBlock = this.world.getBlock(cursor.offset(0, 1, 0));
                                 const bubbleDrag =
                                     aboveBlock && aboveBlock.type === 0 /* air */
-                                        ? this.physics.bubbleColumnSurfaceDrag
-                                        : this.physics.bubbleColumnDrag;
+                                        ? this.settings.bubbleColumnSurfaceDrag
+                                        : this.settings.bubbleColumnDrag;
                                 if (down) {
                                     vel.y = Math.max(bubbleDrag.maxDown, vel.y - bubbleDrag.down);
                                 } else {
@@ -361,11 +361,11 @@ export class PerStatePhysics extends Physics {
                 const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
                 if (blockBelow) {
                     if (blockBelow.type === this.soulsandId) {
-                        vel.x *= this.physics.soulsandSpeed;
-                        vel.z *= this.physics.soulsandSpeed;
+                        vel.x *= this.settings.soulsandSpeed;
+                        vel.z *= this.settings.soulsandSpeed;
                     } else if (blockBelow.type === this.honeyblockId) {
-                        vel.x *= this.physics.honeyblockSpeed;
-                        vel.z *= this.physics.honeyblockSpeed;
+                        vel.x *= this.settings.honeyblockSpeed;
+                        vel.z *= this.settings.honeyblockSpeed;
                     }
                 }
             }
@@ -568,12 +568,12 @@ export class PerStatePhysics extends Physics {
         const vel = entity.velocity;
         const pos = entity.position;
 
-        const gravityMultiplier = vel.y <= 0 && entity.slowFalling > 0 ? this.physics.slowFalling : 1;
+        const gravityMultiplier = vel.y <= 0 && entity.slowFalling > 0 ? this.settings.slowFalling : 1;
 
         if (!entity.isInWater && !entity.isInLava) {
             // Normal movement
-            let acceleration = this.physics.airborneAcceleration;
-            let inertia = this.physics.airborneInertia;
+            let acceleration = this.settings.airborneAcceleration;
+            let inertia = this.settings.airborneInertia;
 
             let blockUnder;
             if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
@@ -585,28 +585,28 @@ export class PerStatePhysics extends Physics {
             }
             if (entity.onGround && blockUnder) {
                 let playerSpeedAttribute;
-                if (entity.attributes && entity.attributes[this.physics.movementSpeedAttribute]) {
+                if (entity.attributes && entity.attributes[this.settings.movementSpeedAttribute]) {
                     // Use server-side player attributes
-                    playerSpeedAttribute = entity.attributes[this.physics.movementSpeedAttribute];
+                    playerSpeedAttribute = entity.attributes[this.settings.movementSpeedAttribute];
                 } else {
                     // Create an attribute if the player does not have it
-                    playerSpeedAttribute = attributes.createAttributeValue(this.physics.playerSpeed);
+                    playerSpeedAttribute = attributes.createAttributeValue(this.settings.playerSpeed);
                 }
                 // Client-side sprinting (don't rely on server-side sprinting)
                 // setSprinting in LivingEntity.java
-                playerSpeedAttribute = attributes.deleteAttributeModifier(playerSpeedAttribute, this.physics.sprintingUUID); // always delete sprinting (if it exists)
+                playerSpeedAttribute = attributes.deleteAttributeModifier(playerSpeedAttribute, this.settings.sprintingUUID); // always delete sprinting (if it exists)
                 if (entity.control.movements.sprint) {
-                    if (!attributes.checkAttributeModifier(playerSpeedAttribute, this.physics.sprintingUUID)) {
+                    if (!attributes.checkAttributeModifier(playerSpeedAttribute, this.settings.sprintingUUID)) {
                         playerSpeedAttribute = attributes.addAttributeModifier(playerSpeedAttribute, {
-                            uuid: this.physics.sprintingUUID,
-                            amount: this.physics.sprintSpeed,
+                            uuid: this.settings.sprintingUUID,
+                            amount: this.settings.sprintSpeed,
                             operation: 2,
                         });
                     }
                 }
                 // Calculate what the speed is (0.1 if no modification)
                 const attributeSpeed = attributes.getAttributeValue(playerSpeedAttribute);
-                inertia = (this.blockSlipperiness[blockUnder.type] || this.physics.defaultSlipperiness) * 0.91;
+                inertia = (this.blockSlipperiness[blockUnder.type] || this.settings.defaultSlipperiness) * 0.91;
                 acceleration = attributeSpeed * (0.1627714 / (inertia * inertia * inertia));
                 if (acceleration < 0) acceleration = 0; // acceleration should not be negative
             }
@@ -615,9 +615,9 @@ export class PerStatePhysics extends Physics {
 
             if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
                 if (this.isOnLadder(pos)) {
-                    vel.x = math.clamp(-this.physics.ladderMaxSpeed, vel.x, this.physics.ladderMaxSpeed);
-                    vel.z = math.clamp(-this.physics.ladderMaxSpeed, vel.z, this.physics.ladderMaxSpeed);
-                    vel.y = Math.max(vel.y, entity.control.movements.sneak ? 0 : -this.physics.ladderMaxSpeed);
+                    vel.x = math.clamp(-this.settings.ladderMaxSpeed, vel.x, this.settings.ladderMaxSpeed);
+                    vel.z = math.clamp(-this.settings.ladderMaxSpeed, vel.z, this.settings.ladderMaxSpeed);
+                    vel.y = Math.max(vel.y, entity.control.movements.sneak ? 0 : -this.settings.ladderMaxSpeed);
                 }
             }
 
@@ -628,7 +628,7 @@ export class PerStatePhysics extends Physics {
                     this.isOnLadder(pos) &&
                     (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.control.movements.jump))
                 ) {
-                    vel.y = this.physics.ladderClimbSpeed; // climb ladder
+                    vel.y = this.settings.ladderClimbSpeed; // climb ladder
                 }
             }
 
@@ -636,16 +636,16 @@ export class PerStatePhysics extends Physics {
             if (entity.levitation > 0) {
                 vel.y += (0.05 * entity.levitation - vel.y) * 0.2;
             } else {
-                vel.y -= this.physics.gravity * gravityMultiplier;
+                vel.y -= this.settings.gravity * gravityMultiplier;
             }
-            vel.y *= this.physics.airdrag;
+            vel.y *= this.settings.airdrag;
             vel.x *= inertia;
             vel.z *= inertia;
         } else {
             // Water / Lava movement
             const lastY = pos.y;
-            let acceleration = this.physics.liquidAcceleration;
-            const inertia = entity.isInWater ? this.physics.waterInertia : this.physics.lavaInertia;
+            let acceleration = this.settings.liquidAcceleration;
+            const inertia = entity.isInWater ? this.settings.waterInertia : this.settings.lavaInertia;
             let horizontalInertia = inertia;
 
             if (entity.isInWater) {
@@ -664,12 +664,12 @@ export class PerStatePhysics extends Physics {
             this.applyHeading(entity, strafe, forward, acceleration);
             this.moveEntity(entity, vel.x, vel.y, vel.z);
             vel.y *= inertia;
-            vel.y -= (entity.isInWater ? this.physics.waterGravity : this.physics.lavaGravity) * gravityMultiplier;
+            vel.y -= (entity.isInWater ? this.settings.waterGravity : this.settings.lavaGravity) * gravityMultiplier;
             vel.x *= horizontalInertia;
             vel.z *= horizontalInertia;
 
             if (entity.isCollidedHorizontally && this.doesNotCollide(pos.offset(vel.x, vel.y + 0.6 - pos.y + lastY, vel.z))) {
-                vel.y = this.physics.outOfLiquidImpulse; // jump out of liquid
+                vel.y = this.settings.outOfLiquidImpulse; // jump out of liquid
             }
         }
     }
@@ -685,9 +685,9 @@ export class PerStatePhysics extends Physics {
         entity.isInLava = this.isMaterialInBB(lavaBB, this.lavaId);
 
         // Reset velocity component if it falls under the threshold
-        if (Math.abs(vel.x) < this.physics.negligeableVelocity) vel.x = 0;
-        if (Math.abs(vel.y) < this.physics.negligeableVelocity) vel.y = 0;
-        if (Math.abs(vel.z) < this.physics.negligeableVelocity) vel.z = 0;
+        if (Math.abs(vel.x) < this.settings.negligeableVelocity) vel.x = 0;
+        if (Math.abs(vel.y) < this.settings.negligeableVelocity) vel.y = 0;
+        if (Math.abs(vel.z) < this.settings.negligeableVelocity) vel.z = 0;
 
         // Handle inputs
         if (entity.control.movements.jump || entity.jumpQueued) {
@@ -699,7 +699,7 @@ export class PerStatePhysics extends Physics {
                 if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
                     blockUnder = this.world.getBlock(pos.offset(0, -1, 0));
                     vel.y =
-                        Math.fround(0.42) * (blockUnder && blockUnder.type === this.honeyblockId ? this.physics.honeyblockJumpSpeed : 1);
+                        Math.fround(0.42) * (blockUnder && blockUnder.type === this.honeyblockId ? this.settings.honeyblockJumpSpeed : 1);
                 } else if (this.extras.doCollisions) {
                     blockUnder = this.extras.getBlock(pos.offset(0, -1, 0));
                     if (blockUnder) vel.y = Math.fround(0.42);
@@ -715,15 +715,15 @@ export class PerStatePhysics extends Physics {
                     vel.x -= Math.sin(yaw) * 0.2;
                     vel.z += Math.cos(yaw) * 0.2;
                 }
-                entity.jumpTicks = this.physics.autojumpCooldown;
+                entity.jumpTicks = this.settings.autojumpCooldown;
             }
         } else {
             entity.jumpTicks = 0; // reset autojump cooldown
         }
         entity.jumpQueued = false;
 
-        let strafe = ((entity.control.movements.right as unknown as number) - (entity.control.movements.left as unknown as number)) * 0.98;
-        let forward = ((entity.control.movements.forward as unknown as number) - (entity.control.movements.back as unknown as number)) * 0.98;
+        let strafe = Number(entity.control.movements.left) - Number(entity.control.movements.right) * 0.98;
+        let forward = Number(entity.control.movements.forward) - Number(entity.control.movements.back) * 0.98;
 
         if (entity.control.movements.sneak) {
             // console.log("sneakin")
@@ -733,8 +733,8 @@ export class PerStatePhysics extends Physics {
 
         if (entity.isUsingItem) {
             console.log("before:", strafe, forward);
-            strafe *= this.physics.usingItemSpeed;
-            forward *= this.physics.usingItemSpeed;
+            strafe *= this.settings.usingItemSpeed;
+            forward *= this.settings.usingItemSpeed;
             console.log("after:", strafe, forward);
         }
 

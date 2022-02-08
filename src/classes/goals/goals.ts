@@ -21,7 +21,7 @@ export abstract class BaseGoal extends EventEmitter implements BaseGoalOptions {
     abstract get goalPosRaw(): Vec3;
 
     abstract cost(node: PathNode): number;
-    abstract goalReached(node: PathNode): boolean;
+    abstract goalReached(node: {x: number, y: number, z: number}): boolean;
     
 
     predictiveFunction?: PredictiveFunction;

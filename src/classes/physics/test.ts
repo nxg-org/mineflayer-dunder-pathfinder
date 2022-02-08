@@ -1,12 +1,14 @@
 import { Bot, createBot } from "mineflayer";
 import { goals, Move, Movements, pathfinder } from "mineflayer-pathfinder";
-import utilPlugin from "@nxg-org/mineflayer-util-plugin";
+import utilPlugin, { AABB, MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import tracker from "@nxg-org/mineflayer-tracker";
 import { PerStatePhysics } from "./freefallPhysics";
 import md from "minecraft-data";
 import { Physics } from "./physics";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
+import { Simulations } from "./simulations";
+import { Block } from "prismarine-block";
 
 class PredictiveGoal extends goals.GoalFollow {
     public readonly bot: Bot;
@@ -62,6 +64,7 @@ class PredictiveGoal extends goals.GoalFollow {
     }
 }
 
+console.log("shit");
 const bot = createBot({
     username: "physics-test",
     host: "localhost",
@@ -73,15 +76,17 @@ bot.loadPlugin(utilPlugin);
 bot.loadPlugin(tracker);
 
 let moves: Movements;
+let simulator: Simulations;
 bot.once("spawn", () => {
     const data = md(bot.version);
-    (bot.physics as any) = new PerStatePhysics(data, bot.world, {
-        doBlockInfoUpdates: false,
+    const physics = new PerStatePhysics(data, bot.world, {
+        doBlockInfoUpdates: true,
         ignoreHoriztonalCollisions: false,
         ignoreVerticalCollisions: false,
         doCollisions: true,
-        customCollisionsOnly: false
+        customCollisionsOnly: false,
     });
+    // (bot.physics as any) = physics
 
     moves = new Movements(bot, data);
     moves.allowParkour = true;
@@ -93,6 +98,7 @@ bot.once("spawn", () => {
     // moves.countScaffoldingItems = () => 100;
     bot.util.move.movements = moves;
     bot.pathfinder.setMovements(moves);
+    simulator = new Simulations(bot, physics);
     // (bot.pathfinder as any).enablePathShortcut = true
 });
 
@@ -101,11 +107,51 @@ bot.on("chat", async (username, message) => {
     let target;
     let pos;
     switch (msg[0]) {
+        case "sim":
+            bot.physicsEnabled = false;
+            const block = bot.findBlock({
+                matching: (b: Block) => {
+                    if (!b.position) return false;
+                    let tmp = 10;
+                    if (b.position.xzDistanceTo(bot.entity.position) < 3) {
+                        tmp = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1)
+                            .normalize()
+                            .dot(b.position.clone().subtract(bot.entity.position).normalize());
+                        // console.log(tmp, b.position.xzDistanceTo(bot.entity.position), b.name)
+                    }
+                    return (
+                        Math.ceil(b.position.xzDistanceTo(bot.entity.position)) == 3 && !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
+                    );
+                },
+                useExtraInfo: true,
+            });
+            if (!block) {
+                bot.chat("couldn't find block.");
+                return;
+            }
+            const offset = block.position.offset(0.5, 1, 0.5);
+            const src = bot.entity.position.clone().floored().offset(0, -1, 0);
+            // const dir = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1).scale(5);
+            // const offset = blockPos.offset(dir.x, 0, dir.z)
 
+            // /particle flame 2006.17 65.81 1920.36
+
+            bot.chat("/particle flame " + offset.x + " " + (offset.y + 1) + " " + offset.z + " 0 0.5 0 0 10");
+            // bot.lookAt(offset, false);
+            await bot.util.sleep(150);
+            // await bot.waitForTicks(1);
+            await simulator.simulateSmartAim(bot, offset, false, true, 0, 30);
+            bot.physicsEnabled = true;
+            break;
+        case "simto":
+            target = bot.nearestEntity((e) => e.username === username)!;
+            pos = target.position;
+            await simulator.simulateSmartAim(bot, pos, false, true, 0, 30);
+            break;
         case "test":
             target = bot.nearestEntity((e) => e.username === username)!;
             pos = target.position;
-            bot.on("physicsTick", () => bot.setControlState("sneak", true))
+            bot.on("physicsTick", () => bot.setControlState("sneak", true));
             await bot.pathfinder.goto(new goals.GoalBlock(pos.x, pos.y, pos.z));
             break;
         case "testcome":

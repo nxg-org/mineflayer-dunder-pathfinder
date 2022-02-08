@@ -7,7 +7,7 @@ export enum IBlockType {
 }
 export class BlockInteraction {
     public hash: string;
-    constructor(public type: IBlockType, public dest: BetterBlockPos, public reference?: BetterBlockPos, public blockType?: string) {
+    constructor(public type: IBlockType, public dest: Vec3, public reference?: Vec3, public blockType?: string) {
         this.hash =
             type +
             ":" +

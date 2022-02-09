@@ -196,7 +196,7 @@ bot.on("chat", async (username, message) => {
             bot.lookAt(realGoalPair[1]!, false);
             await bot.util.sleep(150);
 
-            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, realGoalPair[0]!, true, true, 20, state);
+            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, realGoalPair[0]!, true, false, 20, state);
             await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoalPair[1]!, true, false, 30, state);
             bot.physicsEnabled = true;
             break;

@@ -11,6 +11,7 @@ import { Simulations } from "./simulations";
 import { Block } from "prismarine-block";
 import { PlayerState } from "./playerState";
 import { PlayerControls } from "../player/playerControls";
+import { getShortestLineBetweenTwoBlocks } from "./physicsUtils";
 
 class PredictiveGoal extends goals.GoalFollow {
     public readonly bot: Bot;
@@ -137,21 +138,66 @@ bot.on("chat", async (username, message) => {
                 return;
             }
             // bot.physicsEnabled = false;
-            const offset = block.position.offset(0.5, 1, 0.5);
+            const offset = block.position.offset(0, 1, 0);
        
             // const dir = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1).scale(5);
             // const offset = blockPos.offset(dir.x, 0, dir.z)
 
             // /particle flame 2006.17 65.81 1920.36
 
-            bot.chat("/particle flame " + offset.x + " " + (offset.y + 1) + " " + offset.z + " 0 0.5 0 0 10");
-            bot.lookAt(offset, false);
-            await bot.util.sleep(150);
+ 
+       
             // await bot.waitForTicks(1);
             const state = new PlayerState(physics, bot, PlayerControls.DEFAULT())
             const srcAABBs = state.getUnderlyingBlockAABBs();
-            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, offset, true, true, 20, state);
-            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, offset, true, true, 30, state);
+
+
+
+
+            const dest = AABB.fromBlock(block.position);
+
+            const realGoalDir = dest.getCenter().minus(state.position).normalize(); //playerState.position.minus(goalAABB.getCenter()).normalize();
+            realGoalDir.y = 0; // want only x and z, get best 2D direction away from goal.
+            let realGoalPair = srcAABBs
+                .map((aabb) => {
+                    const vecs = getShortestLineBetweenTwoBlocks(aabb, dest).toVecs()
+                    let far;
+                    let close;
+                    if (dest.distanceToVec(vecs[0]) > dest.distanceToVec(vecs[1])) {
+                        console.log("far = 1", dest.distanceToVec(vecs[0]), dest.distanceToVec(vecs[1]))
+                        far = vecs[1];
+                        close = vecs[0]
+                    } else {
+                        console.log("far = 0", dest.distanceToVec(vecs[0]), dest.distanceToVec(vecs[1]))
+                        far = vecs[0];
+                        close = vecs[1];
+                    }
+                    const dir = far.minus(close).normalize();
+                    dir.y = 0
+                    console.log(dir)
+                    return [aabb.intersectsRay(state!.position.offset(0, -0.5, 0), dir), far]
+                })
+                .filter((i) => !!i)
+                .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!))[0];
+              
+            
+
+
+            if (!realGoalPair) {
+                console.log("shit...")
+                realGoalPair = [srcAABBs.sort((a, b) => b.distanceToVec(offset) - a.distanceToVec(offset))[0].getCenter(), dest.getCenter()];
+            }
+
+
+            console.log(block.position, realGoalPair[1])
+
+            bot.chat("/particle flame " + realGoalPair[1]!.x + ".0 " + (realGoalPair[1]!.y + 1) + ".0 " + realGoalPair[1]!.z + ".0 0 0.5 0 0 10");
+
+            bot.lookAt(realGoalPair[1]!, false);
+            await bot.util.sleep(150);
+
+            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, realGoalPair[0]!, true, true, 20, state);
+            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoalPair[1]!, true, false, 30, state);
             bot.physicsEnabled = true;
             break;
         case "simto":

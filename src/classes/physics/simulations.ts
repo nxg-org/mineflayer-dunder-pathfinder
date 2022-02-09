@@ -7,6 +7,7 @@ import { MovementData } from "../movement/movementData";
 import { PathNode } from "../nodes/node";
 import { PlayerControls } from "../player/playerControls";
 import { Physics } from "./physics";
+import { getShortestLineBetweenTwoBlocks } from "./physicsUtils";
 import { PlayerState } from "./playerState";
 
 type SimulationGoal = (state: PlayerState) => boolean;
@@ -109,17 +110,6 @@ export class Simulations {
     ) {
         const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
         state ??= new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
-        const goalAABB = AABB.fromBlock(goal);
-
-        const realGoalDir = goalAABB.getCenter().minus(state.position).normalize(); //playerState.position.minus(goalAABB.getCenter()).normalize();
-        realGoalDir.y = 0; // want only x and z, get best 2D direction away from goal.
-        let realGoal = srcAABBs
-            .map((aabb) => aabb.intersectsRay(state!.position.offset(0, -0.5, 0), realGoalDir))
-            .filter((i) => !!i)
-            .sort((a, b) => goalAABB.distanceToVec(b!) - goalAABB.distanceToVec(a!))[0];
-
-        if (!realGoal) realGoal = srcAABBs.sort((a, b) => b.distanceToVec(goal) - a.distanceToVec(goal))[0].getCenter();
-        let lastVelocity = state.velocity.clone();
         let still = 0;
 
         return await this.simulateUntil(
@@ -131,7 +121,7 @@ export class Simulations {
 
                 return still > 1 || srcAABBs.every((src) => !src.intersects(playerBB.offset(state.velocity.x, state.velocity.y, state.velocity.z)));
             },
-            this.getCleanupPosition(realGoal),
+            this.getCleanupPosition(goal),
             this.buildFullController(aim, (state: PlayerState, ticks: number) => {
                 // move(state, ticks);
                 state.control.movements.forward = false;
@@ -169,7 +159,6 @@ export class Simulations {
         const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
         state ??= new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
         const move = this.getControllerSmartMovement(goal, sprint);
-        console.log(srcAABBs.length)
         let jump = false;
         await this.simulateUntil(
             this.getReached(goal),
@@ -178,7 +167,7 @@ export class Simulations {
                 move(state, ticks);
                 // check if player is leaving src block collision
                 const playerBB = state.getAABB();
-                if (ticks > 1 && srcAABBs.every((src) => !src.intersects(playerBB.offset(0, state.velocity.y, 0))) && !jump) {
+                if (srcAABBs.every((src) => !src.intersects(playerBB.offset(0, state.velocity.y, 0))) && !jump) {
                     state.control.movements.jump = true;
                     jump = true;
                 } else {
@@ -221,7 +210,7 @@ export class Simulations {
     // left should be negative.
     getControllerStrafeAim(nextPoint: Vec3) {
         return (state: PlayerState, ticks: number) => {
-            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(3))
+            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(1))
             const dx = nextPoint.x - offset.x;
             const dz = nextPoint.z - offset.z;
             let wantedYaw = Math.atan2(-dx, -dz);
@@ -235,15 +224,15 @@ export class Simulations {
             if ((1 * Math.PI) / 12 < diff && diff < (11 * Math.PI) / 12) {
                 state.control.movements.left = false;
                 state.control.movements.right = true;
-                // console.log("right");
+                console.log("right");
             } else if ((13 * Math.PI) / 12 < diff && diff < (23 * Math.PI) / 12) {
                 state.control.movements.left = true; // are these reversed? tf
                 state.control.movements.right = false;
-                // console.log("left");
+                console.log("left");
             } else {
                 state.control.movements.left = false;
                 state.control.movements.right = false;
-                // console.log("rotate neither");
+                console.log("rotate neither");
             }
             // } else {
             //     state.control.movements.left = false;
@@ -265,7 +254,7 @@ export class Simulations {
     // backward is any value that abs. val to above pi / 2
     getControllerSmartMovement(goal: Vec3, sprint: boolean) {
         return (state: PlayerState, ticks: number) => {
-            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(4))
+            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(1))
             const dx = goal.x - offset.x;
             const dz = goal.z - offset.z;
             let wantedYaw = Math.atan2(-dx, -dz);

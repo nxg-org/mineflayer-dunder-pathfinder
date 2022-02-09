@@ -35,18 +35,22 @@ export class Simulations {
             state = new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
         }
 
+        let returnTime = false;
         for (let i = 0; i < ticks; i++) {
             controller(state, i);
             this.physics.simulatePlayer(state);
+
+            if (state.isInLava) returnTime = true;
+            if (goal(state)) {
+                onGoalReach(state);
+                returnTime = true;
+            }
             if (bot) {
                 state.apply(bot);
                 await bot.waitForTicks(1);
             }
-            if (state.isInLava) return state;
-            if (goal(state)) {
-                onGoalReach(state);
-                return state;
-            }
+
+            if (returnTime) return state;
         }
 
         return state;
@@ -106,15 +110,15 @@ export class Simulations {
         state?: PlayerState
     ) {
         const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
-        const move = this.getControllerSmartMovement(goal, sprint)
+        const move = this.getControllerSmartMovement(goal, sprint);
         state ??= new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
 
         return await this.simulateUntil(
             (state) => {
                 const playerBB = state.getAABB();
-                playerBB.expand(0, 1e-1, 0)
+                playerBB.expand(0, 1e-1, 0);
                 //state.velocity.x, state.velocity.y, state.velocity.z
-                return state.sneakCollision || srcAABBs.every((src) => !src.intersects(playerBB));
+                return state.sneakCollision || srcAABBs.every((src) => !src.intersects(playerBB)) || state.position.xzDistanceTo(goal) < 0.1;
             },
             this.getCleanupPosition(goal),
             this.buildFullController(aim, move, (state: PlayerState, ticks: number) => {
@@ -154,12 +158,8 @@ export class Simulations {
                     move(state, ticks);
                     // check if player is leaving src block collision
                     const playerBB = state.getAABB();
-                    playerBB.expand(0, 1e-1, 0)
-                    if (
-                        ticks > 1 &&
-                        srcAABBs.every((src) => !src.intersects(playerBB)) &&
-                        !jump
-                    ) {
+                    playerBB.expand(0, 1e-1, 0);
+                    if (ticks > 1 && srcAABBs.every((src) => !src.intersects(playerBB)) && !jump) {
                         state.control.movements.jump = true;
                         jump = true;
                     } else {
@@ -222,9 +222,8 @@ export class Simulations {
                 state.control.movements.right = false;
                 console.log("left");
             } else {
-
-                state.control.movements.left = false;
-                state.control.movements.right = false;
+                // state.control.movements.left = false;
+                // state.control.movements.right = false;
                 console.log("rotate neither, left:", state.control.movements.left, "right:", state.control.movements.right);
             }
             // } else {

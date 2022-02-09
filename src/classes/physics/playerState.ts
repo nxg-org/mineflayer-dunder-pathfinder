@@ -6,7 +6,7 @@ import * as nbt from "prismarine-nbt";
 import { Vec3 } from "vec3";
 import { getStatusEffectNamesForVersion, hash, hashAABB, isEntityUsingItem, makeSupportFeature, whichHandIsEntityUsing, whichHandIsEntityUsingBoolean } from "./physicsUtils";
 // import { bot.entity } from "prismarine-entity";
-
+import md from "minecraft-data";
 
 /**
  * Looking at this code, it's too specified towards players.
@@ -50,8 +50,8 @@ export class PlayerState {
     public readonly ctx: Physics;
     private readonly supportFeature: ReturnType<typeof makeSupportFeature>;
 
-    constructor(ctx: Physics, bot: Bot, control: PlayerControls) {
-        this.supportFeature = makeSupportFeature(ctx.data);
+    constructor(ctx: Physics, bot: Bot, control: PlayerControls, data?: md.IndexedData ) {
+        this.supportFeature = makeSupportFeature(ctx.data ?? data);
         this.ctx = ctx;
         this.position = bot.entity.position.clone();
         this.velocity = bot.entity.velocity.clone();

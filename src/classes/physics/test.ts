@@ -81,8 +81,9 @@ bot.loadPlugin(tracker);
 let moves: Movements;
 let simulator: Simulations;
 let physics: PerStatePhysics;
+let data: md.IndexedData;
 bot.once("spawn", () => {
-    const data = md(bot.version);
+    data = md(bot.version);
     physics = new PerStatePhysics(data, bot.world, {
         doBlockInfoUpdates: true,
         ignoreHoriztonalCollisions: false,
@@ -127,7 +128,7 @@ bot.on("chat", async (username, message) => {
                     const ydist = b.position.clone().subtract(src).y;
                     return (
                         b.position.xzDistanceTo(src) <= 8 &&
-                        b.position.xzDistanceTo(src) >= 3 &&
+                        b.position.xzDistanceTo(src) >= 2 &&
                         ydist <= 1 &&
                         ydist > -4 &&
                         !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
@@ -149,24 +150,44 @@ bot.on("chat", async (username, message) => {
             // /particle flame 2006.17 65.81 1920.36
 
             // await bot.waitForTicks(1);
+            console.log(bot.physics)
             const state = new PlayerState(physics, bot, PlayerControls.DEFAULT());
             const srcAABBs = state.getUnderlyingBlockAABBs();
 
             const dest = AABB.fromBlock(block.position);
 
-            const realGoalDir = dest.getCenter().minus(state.position).normalize(); //playerState.position.minus(goalAABB.getCenter()).normalize();
-            realGoalDir.y = 0; // want only x and z, get best 2D direction away from goal.
+            // const realGoalDir = dest.getCenter().minus(state.position).normalize(); //playerState.position.minus(goalAABB.getCenter()).normalize();
+            // realGoalDir.y = 0; // want only x and z, get best 2D direction away from goal.
             let realGoals = srcAABBs
-                .map((aabb) => {
+                .map((aabb) => { 
+
+
+                    // ! mm yes, good code.
+
+
+                    // ! temporary arrays to store found x, y, z
                     const destTmp = [0, 0, 0];
-                    const srcTmp = [0, 0, 0];
-                    const points = getShortestLineBetweenTwoBlocks(aabb, dest).toArray();
+                    const srcTmp = [0, 0, 0]; 
+
+                    
+                    // ! grab the rectangle bounding between the two blocks (below expanded to three dimensions)
+                    // ! Referring to this as "between" rectangle.
+                    // * https://gamedev.stackexchange.com/questions/154036/efficient-minimum-distance-between-two-axis-aligned-squares
+                    const points = getShortestLineBetweenTwoBlocks(aabb, dest).toArray(); 
+
+                    // ! get points of target block.
                     const compArr = dest.toArray();
+
+                    // ! loop over X, Y, Z (0, 1, 2, respectively)
                     for (let i = 0; i < 3; i++) {
+
+                        // ! check if boxes are sharing a coordinate. I came up w/ this on the spot, can't explain it besides it working.
                         if (compArr[i] == points[i] && (compArr[i] == points[i + 3] || compArr[i + 3] == points[i + 3])) {
                             srcTmp[i] = (points[i] + points[i + 3]) / 2;
                             destTmp[i] = (points[i] + points[i + 3]) / 2
                         }
+
+                        // ! check if min(x, y, z) of between rect. equals 
                         else if (compArr[i] == points[i] || compArr[i] == points[i + 3]) {
                             srcTmp[i] = points[i];
                             destTmp[i] = points[i + 3];
@@ -180,7 +201,7 @@ bot.on("chat", async (username, message) => {
                     const closeToSrc = new Vec3(srcTmp[0], srcTmp[1], srcTmp[2])
                     const dir = closeToDest.minus(closeToSrc).normalize();
                     let tryIt = aabb.intersectsRay(closeToSrc, dir)
-                    console.log(closeToSrc, dir, aabb, tryIt)
+                    tryIt = tryIt!.plus(tryIt!.minus(closeToSrc).normalize().scale(.3));
                     return [tryIt, closeToDest];
                 })
                 .filter((i) => !!i[0])
@@ -208,10 +229,13 @@ bot.on("chat", async (username, message) => {
             bot.lookAt(realGoals[1]!, false);
             await bot.util.sleep(150);
 
-            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, realGoals[0]!, true, true, 20, state);
+            if (state.position.xzDistanceTo(realGoals[0]) > 0.1) {
+                await simulator.simulateBackUpBeforeJump(bot, srcAABBs, realGoals[0], true, true, 20, state);
+            }
+        
             // await bot.lookAt(realGoals[1]!, false);
             // await bot.util.sleep(150);
-            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoals[1]!, true, false, 30, state);
+            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoals[1], true, false, 30, state);
 
             // await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoalPair[1]!, true, true, 30, state);
             bot.physicsEnabled = true;

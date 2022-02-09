@@ -566,6 +566,7 @@ export class Physics {
             } else {
                 vel.y -= this.settings.gravity * gravityMultiplier;
             }
+            console.log(inertia)
             vel.y *= this.settings.airdrag;
             vel.x *= inertia;
             vel.z *= inertia;

@@ -1,4 +1,4 @@
-import { Bot, Effect } from "mineflayer";
+import { Bot, ControlState, Effect } from "mineflayer";
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import { PlayerControls } from "../player/playerControls";
 import { Physics } from "./physics";
@@ -24,6 +24,8 @@ export class PlayerState {
     public isCollidedVertically: boolean;
     public jumpTicks: number;
     public jumpQueued: boolean;
+
+    public sneakCollision: boolean;
 
     public attributes: any /* dunno yet */;
     public yaw: number;
@@ -59,6 +61,7 @@ export class PlayerState {
         this.isInWeb = (bot.entity as any).isInWeb;
         this.isCollidedHorizontally = (bot.entity as any).isCollidedHorizontally;
         this.isCollidedVertically = (bot.entity as any).isCollidedVertically;
+        this.sneakCollision = false; //TODO
 
         //not sure what to do here, ngl.
         this.jumpTicks = (bot as any).jumpTicks ?? 0;
@@ -169,6 +172,13 @@ export class PlayerState {
     // public clone() {
     //     return new PlayerState(this.ctx, this.ctx.bot, this.control)
     // }
+
+    public clearControlStates() {
+        for (const key in this.control.movements) {
+            this.control.movements[key as ControlState] = false;
+        }
+
+    }
 
     public getAABB(): AABB {
         const w = this.ctx.settings.playerHalfWidth

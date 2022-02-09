@@ -124,8 +124,9 @@ bot.on("chat", async (username, message) => {
                     //         .dot(b.position.clone().subtract(bot.entity.position).normalize());
                     //     // console.log(tmp, b.position.xzDistanceTo(bot.entity.position), b.name)
                     // }
+                    const ydist = b.position.clone().subtract(src).y
                     return (
-                        ((b.position.xzDistanceTo(src) < 6 && b.position.xzDistanceTo(src) > 3) && Math.abs(b.position.clone().subtract(src).y) <= 2)  && !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
+                        ((b.position.xzDistanceTo(src) <= 8 && b.position.xzDistanceTo(src) >= 3) &&  (ydist <= 1 && ydist > -4))  && !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
                     );
                 },
                 maxDistance: 10,
@@ -135,7 +136,7 @@ bot.on("chat", async (username, message) => {
                 bot.chat("couldn't find block.");
                 return;
             }
-            bot.physicsEnabled = false;
+            // bot.physicsEnabled = false;
             const offset = block.position.offset(0.5, 1, 0.5);
        
             // const dir = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1).scale(5);
@@ -150,7 +151,7 @@ bot.on("chat", async (username, message) => {
             const state = new PlayerState(physics, bot, PlayerControls.DEFAULT())
             const srcAABBs = state.getUnderlyingBlockAABBs();
             await simulator.simulateBackUpBeforeJump(bot, srcAABBs, offset, true, true, 20, state);
-            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, offset, true, true, 20, state);
+            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, offset, true, true, 30, state);
             bot.physicsEnabled = true;
             break;
         case "simto":

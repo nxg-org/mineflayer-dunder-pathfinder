@@ -2,13 +2,15 @@ import { Bot, createBot } from "mineflayer";
 import { goals, Move, Movements, pathfinder } from "mineflayer-pathfinder";
 import utilPlugin, { AABB, MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import tracker from "@nxg-org/mineflayer-tracker";
-import { PerStatePhysics } from "./freefallPhysics";
+import { PerStatePhysics } from "./PerStatePhysics";
 import md from "minecraft-data";
 import { Physics } from "./physics";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
 import { Simulations } from "./simulations";
 import { Block } from "prismarine-block";
+import { PlayerState } from "./playerState";
+import { PlayerControls } from "../player/playerControls";
 
 class PredictiveGoal extends goals.GoalFollow {
     public readonly bot: Bot;
@@ -77,9 +79,10 @@ bot.loadPlugin(tracker);
 
 let moves: Movements;
 let simulator: Simulations;
+let physics: PerStatePhysics;
 bot.once("spawn", () => {
     const data = md(bot.version);
-    const physics = new PerStatePhysics(data, bot.world, {
+    physics = new PerStatePhysics(data, bot.world, {
         doBlockInfoUpdates: true,
         ignoreHoriztonalCollisions: false,
         ignoreVerticalCollisions: false,
@@ -100,6 +103,8 @@ bot.once("spawn", () => {
     bot.pathfinder.setMovements(moves);
     simulator = new Simulations(bot, physics);
     // (bot.pathfinder as any).enablePathShortcut = true
+
+    bot.physics.yawSpeed = 20;
 });
 
 bot.on("chat", async (username, message) => {
@@ -108,45 +113,52 @@ bot.on("chat", async (username, message) => {
     let pos;
     switch (msg[0]) {
         case "sim":
-            bot.physicsEnabled = false;
+       
+            const src = bot.entity.position.clone().floored().offset(0, -1, 0);
             const block = bot.findBlock({
                 matching: (b: Block) => {
-                    if (!b.position) return false;
-                    let tmp = 10;
-                    if (b.position.xzDistanceTo(bot.entity.position) < 3) {
-                        tmp = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1)
-                            .normalize()
-                            .dot(b.position.clone().subtract(bot.entity.position).normalize());
-                        // console.log(tmp, b.position.xzDistanceTo(bot.entity.position), b.name)
-                    }
+                    // let tmp = 10;
+                    // if (b.position.xzDistanceTo(bot.entity.position) < 3) {
+                    //     tmp = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1)
+                    //         .normalize()
+                    //         .dot(b.position.clone().subtract(bot.entity.position).normalize());
+                    //     // console.log(tmp, b.position.xzDistanceTo(bot.entity.position), b.name)
+                    // }
                     return (
-                        Math.ceil(b.position.xzDistanceTo(bot.entity.position)) == 3 && !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
+                        ((b.position.xzDistanceTo(src) < 6 && b.position.xzDistanceTo(src) > 3) && Math.abs(b.position.clone().subtract(src).y) <= 2)  && !b.name.includes("air") // && 0.9 < tmp && tmp < 1.1
                     );
                 },
+                maxDistance: 10,
                 useExtraInfo: true,
             });
             if (!block) {
                 bot.chat("couldn't find block.");
                 return;
             }
+            bot.physicsEnabled = false;
             const offset = block.position.offset(0.5, 1, 0.5);
-            const src = bot.entity.position.clone().floored().offset(0, -1, 0);
+       
             // const dir = MathUtils.yawPitchAndSpeedToDir(bot.entity.yaw, bot.entity.pitch, 1).scale(5);
             // const offset = blockPos.offset(dir.x, 0, dir.z)
 
             // /particle flame 2006.17 65.81 1920.36
 
             bot.chat("/particle flame " + offset.x + " " + (offset.y + 1) + " " + offset.z + " 0 0.5 0 0 10");
-            // bot.lookAt(offset, false);
+            bot.lookAt(offset, false);
             await bot.util.sleep(150);
             // await bot.waitForTicks(1);
-            await simulator.simulateSmartAim(bot, offset, false, true, 0, 30);
+            const state = new PlayerState(physics, bot, PlayerControls.DEFAULT())
+            const srcAABBs = state.getUnderlyingBlockAABBs();
+            await simulator.simulateBackUpBeforeJump(bot, srcAABBs, offset, true, true, 20, state);
+            await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, offset, true, true, 20, state);
             bot.physicsEnabled = true;
             break;
         case "simto":
             target = bot.nearestEntity((e) => e.username === username)!;
             pos = target.position;
-            await simulator.simulateSmartAim(bot, pos, false, true, 0, 30);
+            
+            const src1 = bot.entity.position.clone().floored().offset(0, -1, 0);
+            // await simulator.simulateJumpFromEdgeOfBlock(bot, pos, true, true, 500);
             break;
         case "test":
             target = bot.nearestEntity((e) => e.username === username)!;

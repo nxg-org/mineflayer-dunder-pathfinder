@@ -54,8 +54,8 @@ export class PlayerState {
         this.position = bot.entity.position.clone();
         this.velocity = bot.entity.velocity.clone();
         this.onGround = bot.entity.onGround;
-        this.isInWater = bot.entity.isInWater;
-        this.isInLava = bot.entity.isInLava;
+        this.isInWater = (bot.entity as any).isInWater;
+        this.isInLava = (bot.entity as any).isInLava;
         this.isInWeb = (bot.entity as any).isInWeb;
         this.isCollidedHorizontally = (bot.entity as any).isCollidedHorizontally;
         this.isCollidedVertically = (bot.entity as any).isCollidedVertically;
@@ -104,8 +104,8 @@ export class PlayerState {
         this.position = bot.entity.position.clone();
         this.velocity = bot.entity.velocity.clone();
         this.onGround = bot.entity.onGround;
-        this.isInWater = bot.entity.isInWater;
-        this.isInLava = bot.entity.isInLava;
+        this.isInWater = (bot.entity as any).isInWater;
+        this.isInLava = (bot.entity as any).isInLava;
         this.isInWeb = (bot.entity as any).isInWeb;
         this.isCollidedHorizontally = (bot.entity as any).isCollidedHorizontally;
         this.isCollidedVertically = (bot.entity as any).isCollidedVertically;
@@ -152,8 +152,8 @@ export class PlayerState {
         bot.entity.position = this.position;
         bot.entity.velocity = this.velocity;
         bot.entity.onGround = this.onGround;
-        bot.entity.isInWater = this.isInWater;
-        bot.entity.isInLava = this.isInLava;
+        (bot.entity as any).isInWater = this.isInWater;
+        (bot.entity as any).isInLava = this.isInLava;
         (bot.entity as any).isInWeb = this.isInWeb;
         (bot.entity as any).isCollidedHorizontally = this.isCollidedHorizontally;
         (bot.entity as any).isCollidedVertically = this.isCollidedVertically;
@@ -173,5 +173,10 @@ export class PlayerState {
     public getAABB(): AABB {
         const w = this.ctx.settings.playerHalfWidth
         return new AABB(this.position.x-w, this.position.y, this.position.z-w, this.position.x + w, this.position.y + this.ctx.settings.playerHeight, this.position.z +w)
+    }
+
+    public getUnderlyingBlockAABBs(aabb?: AABB): AABB[] {
+        //.expand(2e-1, 0, 2e-1)
+        return this.ctx.getSurroundingBBs(aabb ?? this.getAABB())
     }
 }

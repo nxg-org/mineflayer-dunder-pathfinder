@@ -224,7 +224,7 @@ function blockStand(bot: Bot, x: number, y: number, z: number, zeNode?: Node) {
     if (zeNode) {
         while (zeNode.parent) {
             for (let i = 0; i < zeNode.brokenBlocks.length; i++) {
-                if (zeNode.brokenBlocks[i].destination.x == x && zeNode.brokenBlocks[i].destination.y == y && zeNode.brokenBlocks[i].destination.z == z) {
+                if (zeNode.brokenBlocks[i].dest.x == x && zeNode.brokenBlocks[i].dest.y == y && zeNode.brokenBlocks[i].dest.z == z) {
                     isTitle = false;
                     break;
                 } 

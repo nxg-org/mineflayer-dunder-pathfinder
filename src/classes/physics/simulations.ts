@@ -1,13 +1,14 @@
 import { AABB, MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import { stat } from "fs/promises";
 import { Bot } from "mineflayer";
+import { Block } from "prismarine-block";
 import { promisify } from "util";
 import { Vec3 } from "vec3";
 import { MovementData } from "../movement/movementData";
 import { PathNode } from "../nodes/node";
 import { PlayerControls } from "../player/playerControls";
 import { Physics } from "./physics";
-import { getShortestLineBetweenTwoBlocks } from "./physicsUtils";
+import { getBetweenRectangle } from "./physicsUtils";
 import { PlayerState } from "./playerState";
 
 type SimulationGoal = (state: PlayerState) => boolean;
@@ -29,10 +30,12 @@ export class Simulations {
         controller: Controller,
         ticks = 1,
         state?: PlayerState,
-        bot?: Bot
+        bot?: Bot,
+        particles: boolean = false,
+        particleName: string = "flame"
     ): Promise<PlayerState> {
         if (!state) {
-            state = new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
+            state = new PlayerState(this.physics, this.bot, PlayerControls.COPY_BOT(this.bot));
         }
 
         let returnTime = false;
@@ -49,15 +52,27 @@ export class Simulations {
                 state.apply(bot);
                 await bot.waitForTicks(1);
             }
-
+            if (particles) {
+                this.bot.chat(
+                    "/particle " +
+                        particleName +
+                        " " +
+                        state.position.x.toFixed(4) +
+                        " " +
+                        state.position.y.toFixed(4) +
+                        " " +
+                        state.position.z.toFixed(4) +
+                        " 0 0 0 0 1"
+                );
+            }
             if (returnTime) return state;
         }
 
         return state;
     }
 
-    async simulateUntilNextTick(state?: PlayerState): Promise<PlayerState> {
-        return await this.simulateUntil(
+    simulateUntilNextTick(state?: PlayerState): Promise<PlayerState> {
+        return this.simulateUntil(
             () => false,
             () => {},
             () => {},
@@ -66,16 +81,17 @@ export class Simulations {
         );
     }
 
-    async simulateUntilOnGround(ticks = 5): Promise<PlayerState> {
-        return await this.simulateUntil(
+    simulateUntilOnGround(ticks = 5, state?: PlayerState): Promise<PlayerState> {
+        return this.simulateUntil(
             (state) => state.onGround,
             () => {},
             () => {},
-            ticks
+            ticks,
+            state
         );
     }
 
-    simulateData(data: MovementData, ticks = 20) {
+    simulateData(data: MovementData, ticks = 20, state?: PlayerState): Promise<PlayerState> {
         return this.simulateUntil(
             (state) => state.onGround,
             () => {},
@@ -85,113 +101,135 @@ export class Simulations {
                     state.control.movements = tmp.movements;
                 }
             },
-            ticks
+            ticks,
+            state
         );
     }
 
-    simulateSmartAim(bot: Bot, goal: Vec3, jump: boolean, sprint: boolean, jumpAfter = 0, ticks = 20) {
+    simulateSmartAim(
+        goal: Vec3,
+        sprint: boolean,
+        jump: boolean,
+        jumpAfter = 0,
+        ticks = 20,
+        state?: PlayerState,
+        bot?: Bot,
+        particles: boolean = false
+    ): Promise<PlayerState> {
         return this.simulateUntil(
-            this.getReached(goal),
-            () => {},
-            this.buildFullController(this.getControllerStrafeAim(goal), this.getControllerSmartMovement(goal, sprint)),
-            ticks,
-            undefined,
-            bot
-        );
-    }
-
-    async simulateBackUpBeforeJump(
-        bot: Bot,
-        srcAABBs: AABB[],
-        goal: Vec3,
-        sprint: boolean,
-        strafe = true,
-        ticks = 20,
-        state?: PlayerState
-    ) {
-        const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
-        const move = this.getControllerSmartMovement(goal, sprint);
-        state ??= new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
-
-        return await this.simulateUntil(
-            (state) => {
-                const playerBB = state.getAABB();
-                playerBB.expand(0, 1e-1, 0);
-                //state.velocity.x, state.velocity.y, state.velocity.z
-                return state.sneakCollision || srcAABBs.every((src) => !src.intersects(playerBB)) || state.position.xzDistanceTo(goal) < 0.1;
-            },
-            this.getCleanupPosition(goal),
-            this.buildFullController(aim, move, (state: PlayerState, ticks: number) => {
-                // move,
-                // state.control.movements.forward =true
-                // state.control.movements.sprint = false
-                // state.control.movements.back = false;
-                state.control.movements.sneak = true;
-            }),
-            ticks,
-            state,
-            bot
-        );
-    }
-
-    async simulateJumpFromEdgeOfBlock(
-        bot: Bot,
-        srcAABBs: AABB[],
-        goal: Vec3,
-        sprint: boolean,
-        strafe = false,
-        ticks = 20,
-        state?: PlayerState
-    ) {
-        const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
-        state ??= new PlayerState(this.physics, this.bot, PlayerControls.DEFAULT());
-        const move = this.getControllerSmartMovement(goal, sprint);
-        let jump = false;
-        await this.simulateUntil(
             this.getReached(goal),
             this.getCleanupPosition(goal),
             this.buildFullController(
                 this.getControllerStraightAim(goal),
                 this.getControllerStrafeAim(goal),
+                this.getControllerSmartMovement(goal, sprint),
+                this.getControllerJumpSprint(jump, sprint, jumpAfter),
+            ),
+            ticks,
+            state,
+            bot,
+            particles
+        );
+    }
+
+    simulateBackUpBeforeJump(
+        srcAABBs: AABB[],
+        goal: Vec3,
+        sprint: boolean,
+        strafe = true,
+        ticks = 20,
+        state?: PlayerState,
+        bot?: Bot,
+        particles: boolean = true
+    ): Promise<PlayerState> {
+        const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
+        state ??= new PlayerState(this.physics, this.bot, PlayerControls.COPY_BOT(this.bot));
+
+        return this.simulateUntil(
+            (state) => {
+                const playerBB = state.getAABB();
+                playerBB.expand(0, 1e-1, 0);
+                return (
+                    (state.sneakCollision || srcAABBs.every((src) => !src.intersects(playerBB))) && state.position.xzDistanceTo(goal) < 0.1
+                );
+            },
+            this.getCleanupPosition(goal),
+            this.buildFullController(aim, this.getControllerSmartMovement(goal, sprint), (state: PlayerState, ticks: number) => {
+                state.control.movements.sneak = true;
+            }),
+            ticks,
+            state,
+            bot,
+            particles
+        );
+    }
+
+    simulateJumpFromEdgeOfBlock(
+        srcAABBs: AABB[],
+        goalCorner: Vec3,
+        goalBlock: Block,
+        sprint: boolean,
+        ticks = 20,
+        state?: PlayerState,
+        bot?: Bot,
+        particles: boolean = false
+    ): Promise<PlayerState> {
+        state ??= new PlayerState(this.physics, this.bot, PlayerControls.COPY_BOT(this.bot));
+        let jump = false;
+        let changed = false;
+        return this.simulateUntil(
+            this.getReached(goalCorner),
+            this.getCleanupPosition(goalCorner),
+            this.buildFullController(
+                this.getControllerStraightAim(goalCorner),
+                this.getControllerStrafeAim(goalCorner),
+                this.getControllerSmartMovement(goalCorner, sprint),
                 (state: PlayerState, ticks: number) => {
                     state.control.movements.sneak = false;
-                    move(state, ticks);
                     // check if player is leaving src block collision
                     const playerBB = state.getAABB();
                     playerBB.expand(0, 1e-1, 0);
+
+                    if (jump && state.position.xzDistanceTo(goalCorner) < 0.5 && !changed) {
+                        changed = true;
+                        goalCorner.set(goalBlock.position.x + 0.5, goalBlock.position.y + 1, goalBlock.position.z + 0.5);
+                        // console.log(goalCorner);
+                    }
+
                     if (ticks > 1 && srcAABBs.every((src) => !src.intersects(playerBB)) && !jump) {
                         state.control.movements.jump = true;
                         jump = true;
                     } else {
                         state.control.movements.jump = false;
                     }
-                }
+                },
             ),
             ticks,
             state,
-            bot
+            bot,
+            particles
         );
     }
 
-    getReached(...path: Vec3[]) {
+    getReached(...path: Vec3[]): SimulationGoal {
         return (state: PlayerState) => {
             const delta = path[0].minus(state.position);
             // console.log(path[0], state.position, Math.abs(delta.x) <= 0.35, Math.abs(delta.z) <= 0.35, Math.abs(delta.y) < 1)
-            return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1;
+            return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1 && (state.onGround || state.isInWater);
         };
     }
 
-    getCleanupPosition(...path: Vec3[]) {
+    getCleanupPosition(...path: Vec3[]): OnGoalReachFunction {
         return (state: PlayerState) => {
             state.clearControlStates();
-            // console.log("sup")
+            // console.log("made it");
             // state.position = path[0];
             // state.velocity.x = 0
             // state.velocity.z = 0
         };
     }
 
-    getControllerStraightAim(nextPoint: Vec3) {
+    getControllerStraightAim(nextPoint: Vec3): Controller {
         return (state: PlayerState, ticks: number) => {
             const dx = nextPoint.x - state.position.x;
             const dz = nextPoint.z - state.position.z;
@@ -201,9 +239,9 @@ export class Simulations {
 
     // right should be positiive,
     // left should be negative.
-    getControllerStrafeAim(nextPoint: Vec3) {
+    getControllerStrafeAim(nextPoint: Vec3): Controller {
         return (state: PlayerState, ticks: number) => {
-            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(1));
+            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(2));
             const dx = nextPoint.x - offset.x;
             const dz = nextPoint.z - offset.z;
             let wantedYaw = Math.atan2(-dx, -dz);
@@ -216,15 +254,15 @@ export class Simulations {
             if ((1 * Math.PI) / 12 < diff && diff < (11 * Math.PI) / 12) {
                 state.control.movements.left = false;
                 state.control.movements.right = true;
-                console.log("right");
+                // console.log("right");
             } else if ((13 * Math.PI) / 12 < diff && diff < (23 * Math.PI) / 12) {
                 state.control.movements.left = true; // are these reversed? tf
                 state.control.movements.right = false;
-                console.log("left");
+                // console.log("left");
             } else {
-                // state.control.movements.left = false;
-                // state.control.movements.right = false;
-                console.log("rotate neither, left:", state.control.movements.left, "right:", state.control.movements.right);
+                // console.log("rotate neither, left:", state.control.movements.left, "right:", state.control.movements.right);
+                state.control.movements.left = false;
+                state.control.movements.right = false;
             }
             // } else {
             //     state.control.movements.left = false;
@@ -234,9 +272,8 @@ export class Simulations {
         };
     }
 
-    getControllerMovement(jump: boolean, sprint: boolean, jumpAfter = 0) {
+    getControllerJumpSprint(jump: boolean, sprint: boolean, jumpAfter = 0): Controller {
         return (state: PlayerState, ticks: number) => {
-            state.control.movements.forward = true;
             state.control.movements.jump = jump && ticks >= jumpAfter;
             state.control.movements.sprint = sprint;
         };
@@ -244,9 +281,9 @@ export class Simulations {
 
     // forward should be any value that abs. val to below pi / 2
     // backward is any value that abs. val to above pi / 2
-    getControllerSmartMovement(goal: Vec3, sprint: boolean) {
+    getControllerSmartMovement(goal: Vec3, sprint: boolean): Controller {
         return (state: PlayerState, ticks: number) => {
-            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(1));
+            const offset = state.position.plus(state.onGround ? state.velocity : state.velocity.scaled(2));
             const dx = goal.x - offset.x;
             const dz = goal.z - offset.z;
             let wantedYaw = Math.atan2(-dx, -dz);
@@ -259,15 +296,15 @@ export class Simulations {
                 state.control.movements.forward = false;
                 state.control.movements.sprint = false;
                 state.control.movements.back = true;
-                console.log("back");
+                // console.log("back");
                 //if (((6 * Math.PI) / 12 < diff && diff < (16 * Math.PI) / 12 ))
             } else if ((19 * Math.PI) / 12 < diff || diff < (6 * Math.PI) / 12) {
                 state.control.movements.forward = true;
                 state.control.movements.sprint = sprint;
                 state.control.movements.back = false;
-                console.log("forward");
+                // console.log("forward");
             } else {
-                console.log("neither");
+                // console.log("neither");
             }
             // else {
             //     state.control.movements.forward = false;
@@ -284,7 +321,7 @@ export class Simulations {
         };
     }
 
-    buildFullController(...controllers: Controller[]) {
+    buildFullController(...controllers: Controller[]): Controller {
         return (state: PlayerState, ticks: number) => {
             controllers.forEach((control) => control(state, ticks));
         };

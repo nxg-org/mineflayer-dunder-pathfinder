@@ -6,6 +6,8 @@ export enum PathType {
     EXCEPTION,
 }
 
+
+
 export class PathCalculationResult {
 
     public readonly path?: IPath;

@@ -31,7 +31,7 @@ export class PhysicsSettings {
     public lavaInertia: number = 0.5;
     public lavaGravity: number;
     public liquidAcceleration: number = 0.02;
-    public airborneInertia: number = Math.fround(1 - 0.09); // 0.91
+    public airborneInertia: number = 0.91
     public airborneAcceleration: number = 0.02;
     public defaultSlipperiness: number = 0.6;
     public outOfLiquidImpulse: number = 0.3;

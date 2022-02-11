@@ -2,7 +2,7 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
-import { BlockInfo, TypeCheck } from "../classes/blocks/blockInfo";
+import { BlockInfo, BlockCheck } from "../classes/blocks/blockInfo";
 import { BotActions } from "../classes/player/botActions";
 import { AdvancedPlayerControls, PlayerControls } from "../classes/player/playerControls";
 import { scaffoldBlocks } from "../classes/utils/constants";
@@ -524,7 +524,7 @@ export class Pathfinder {
             )
         );
         if (
-            (this.blockInfo.getBlockInfo(block!, TypeCheck.WATER) && this.blockInfo.getBlockInfo(blockPlusOneY!, TypeCheck.WATER)) ||
+            (this.blockInfo.getBlockInfo(block!, BlockCheck.WATER) && this.blockInfo.getBlockInfo(blockPlusOneY!, BlockCheck.WATER)) ||
             (this.swimmingFast && this.pathfinderOptions.sprint && this.shouldSwimFast)
         ) {
             this.swimmingFast = true;
@@ -704,7 +704,7 @@ export class Pathfinder {
                         )
                     );
 
-                    if (!clutchCanidates[j] && !this.blockInfo.getBlockInfo(tempBlock!, TypeCheck.AIR)) {
+                    if (!clutchCanidates[j] && !this.blockInfo.getBlockInfo(tempBlock!, BlockCheck.AIR)) {
                     }
                     clutchCanidates[j] = tempBlock;
                 }
@@ -713,7 +713,7 @@ export class Pathfinder {
                 if (!clutchCanidates[i]) {
                     continue;
                 } else {
-                    if (this.blockInfo.getBlockInfo(clutchCanidates[i], TypeCheck.WATER)) {
+                    if (this.blockInfo.getBlockInfo(clutchCanidates[i], BlockCheck.WATER)) {
                         safeBlockCount++;
                     }
                     if (
@@ -721,7 +721,7 @@ export class Pathfinder {
                         (myClutchCanidate && clutchCanidates[i].position.y > myClutchCanidate.position.y) ||
                         (myClutchCanidate &&
                             myClutchCanidate == myClutchCanidate?.position?.y &&
-                            this.blockInfo.getBlockInfo(clutchCanidates[i], TypeCheck.WATER))
+                            this.blockInfo.getBlockInfo(clutchCanidates[i], BlockCheck.WATER))
                     ) {
                         myClutchCanidate = clutchCanidates[i];
                     }
@@ -737,7 +737,7 @@ export class Pathfinder {
                 this.bot.entity.velocity.y <= -0.5518 &&
                 myClutchCanidate &&
                 safeBlockCount < 4 &&
-                this.blockInfo.getBlockInfo(myClutchCanidate as Block, TypeCheck.WATER) &&
+                this.blockInfo.getBlockInfo(myClutchCanidate as Block, BlockCheck.WATER) &&
                 // !blockWater(bot, myClutchCanidate.position.x, myClutchCanidate.position.y, myClutchCanidate.position.z) &&
                 (!this.onPath ||
                     (this.movesToGo[this.lastPos.currentMove] && Math.abs(this.movesToGo[this.lastPos.currentMove].y - this.lastPos.y) > 3))
@@ -986,19 +986,19 @@ export class Pathfinder {
 
                 const lavaCheckY0 = this.blockInfo.getBlockInfo(
                     this.bot.blockAt(new Vec3(this.lastPos.x, this.lastPos.y, this.lastPos.z))!,
-                    TypeCheck.LAVA
+                    BlockCheck.LAVA
                 );
                 const waterCheckY0 = this.blockInfo.getBlockInfo(
                     this.bot.blockAt(new Vec3(this.lastPos.x, this.lastPos.y, this.lastPos.z))!,
-                    TypeCheck.WATER
+                    BlockCheck.WATER
                 );
                 const lavaCheckY1 = this.blockInfo.getBlockInfo(
                     this.bot.blockAt(new Vec3(this.lastPos.x, this.lastPos.y + 1, this.lastPos.z))!,
-                    TypeCheck.LAVA
+                    BlockCheck.LAVA
                 );
                 const waterCheckY1 = this.blockInfo.getBlockInfo(
                     this.bot.blockAt(new Vec3(this.lastPos.x, this.lastPos.y + 1, this.lastPos.z))!,
-                    TypeCheck.WATER
+                    BlockCheck.WATER
                 );
                 if (this.bot.entity.position.y <= myMove.y - 0.25 || lavaCheckY0 || lavaCheckY1 || waterCheckY0 || waterCheckY1) {
                     if (!lavaCheckY0 && !lavaCheckY1) {
@@ -1088,7 +1088,7 @@ export class Pathfinder {
                 } else if (
                     dist3d(this.bot.entity.position.x, 0, this.bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) < Math.sqrt(6) &&
                     dist3d(this.lastPos.x, 0, this.lastPos.z, myMove.x, 0, myMove.z) <= Math.sqrt(9) &&
-                    this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!, TypeCheck.AIR) &&
+                    this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!, BlockCheck.AIR) &&
                     myMove.y <= this.lastPos.y &&
                     (Math.abs(myMove.x - this.lastPos.x) >= 3 || Math.abs(myMove.z - this.lastPos.z) >= 3 || myMove.y == this.lastPos.y)
                 ) {
@@ -1133,13 +1133,13 @@ export class Pathfinder {
                     this.bot.entity.position.y <
                         myMove.y + this.blockInfo.slabSwimTarget(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!) ||
                     (this.bot.entity.position.y < myMove.y + 1.5 &&
-                        !this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, TypeCheck.WATER))
+                        !this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, BlockCheck.WATER))
                 ) {
                     this.botMove.jump = true;
                 } else if (
                     this.bot.entity.position.y >
                         myMove.y + 0.2 + this.blockInfo.slabSwimTarget(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!) &&
-                    this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, TypeCheck.WATER)
+                    this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, BlockCheck.WATER)
                 ) {
                     this.botMove.sneak = true;
                     if (this.bot.entity.velocity.y > -1.0) {
@@ -1165,19 +1165,19 @@ export class Pathfinder {
                 let myMoveDir = { x: myMove.x - this.lastPos.x, z: myMove.z - this.lastPos.z };
 
                 block = this.bot.blockAt(new Vec3(myMove.x, myMove.y + 2, myMove.z));
-                if (this.blockInfo.getBlockInfo(block!, TypeCheck.LILYPAD)) {
+                if (this.blockInfo.getBlockInfo(block!, BlockCheck.LILYPAD)) {
                     this.botActions.digBlock(block!);
                 } else if (
                     this.blockInfo.getBlockInfo(
                         (block = this.bot.blockAt(new Vec3(myMove.x - myMoveDir.x, myMove.y + 2, myMove.z))!),
-                        TypeCheck.LILYPAD
+                        BlockCheck.LILYPAD
                     )
                 ) {
                     this.botActions.digBlock(block!);
                 } else if (
                     this.blockInfo.getBlockInfo(
                         (block = this.bot.blockAt(new Vec3(myMove.x, myMove.y + 2, myMove.z - myMoveDir.z))!),
-                        TypeCheck.LILYPAD
+                        BlockCheck.LILYPAD
                     )
                 ) {
                     this.botActions.digBlock(block!);
@@ -1329,19 +1329,19 @@ export class Pathfinder {
     }
 
     blockAir(x: number, y: number, z: number) {
-        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, TypeCheck.AIR);
+        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, BlockCheck.AIR);
     }
 
     blockWater(x: number, y: number, z: number) {
-        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, TypeCheck.WATER);
+        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, BlockCheck.WATER);
     }
 
     blockCobweb(x: number, y: number, z: number) {
-        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, TypeCheck.COBWEB);
+        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, BlockCheck.COBWEB);
     }
 
     blockLava(x: number, y: number, z: number) {
-        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, TypeCheck.LAVA);
+        return this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(x, y, z))!, BlockCheck.LAVA);
     }
 
     blockSolid(x: number, y: number, z: number) {

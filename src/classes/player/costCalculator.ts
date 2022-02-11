@@ -78,7 +78,7 @@ export class CostInfo {
     private predictPlace(blocks: BlockInteraction[]) {
         const converted = blocks.map((b) => {
             const block = new Block(this.data.blocksByName.stone.id, 0, 0);
-            block.position = b.destination;
+            block.position = b.dest;
             return block;
         });
         const obj: { [blockPos: string]: Block } = {};
@@ -88,7 +88,7 @@ export class CostInfo {
 
     private removePredict(blocks: BlockInteraction[]) {
         this.predictWorld.removeBlocks(
-            blocks.map((b) => b.destination),
+            blocks.map((b) => b.dest),
             false
         );
     }

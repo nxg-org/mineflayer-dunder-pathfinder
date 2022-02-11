@@ -66,7 +66,7 @@ export function getStatusEffectNamesForVersion(supportFeature: ReturnType<typeof
     }
 }
 
-export function getShortestLineBetweenTwoBlocks(src: AABB, dest: AABB) {
+export function getBetweenRectangle(src: AABB, dest: AABB) {
     const outerAABB = new AABB(
         Math.min(src.minX, dest.minX),
         Math.min(src.minY, dest.minY),
@@ -95,7 +95,7 @@ export function getShortestLineBetweenTwoBlocks(src: AABB, dest: AABB) {
         outerCenter.y + hFlip * innerAABBHeight / 2,
         outerCenter.z + lFlip * innerAABBLength / 2,
     );
-    const length = Math.sqrt(Math.max(0, innerAABBHeight) ** 2 + Math.max(0, innerAABBLength) ** 2 + Math.max(0, innerAABBWidth) ** 2);
+    // const length = Math.sqrt(Math.max(0, innerAABBHeight) ** 2 + Math.max(0, innerAABBLength) ** 2 + Math.max(0, innerAABBWidth) ** 2);
    
     return innerAABB
 }

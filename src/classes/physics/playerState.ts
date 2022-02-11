@@ -14,6 +14,7 @@ import md from "minecraft-data";
  * I will eventually split this code into PlayerState and bot.entityState, where bot.entityState contains fewer controls.
  */
 export class PlayerState {
+    public readonly bot: Bot; // needed to clone.
     public position: Vec3;
     public velocity: Vec3;
     public onGround: boolean;
@@ -50,9 +51,10 @@ export class PlayerState {
     public readonly ctx: Physics;
     private readonly supportFeature: ReturnType<typeof makeSupportFeature>;
 
-    constructor(ctx: Physics, bot: Bot, control: PlayerControls, data?: md.IndexedData ) {
-        this.supportFeature = makeSupportFeature(ctx.data ?? data);
+    constructor(ctx: Physics, bot: Bot, control: PlayerControls) {
+        this.supportFeature = makeSupportFeature(ctx.data);
         this.ctx = ctx;
+        this.bot = bot;
         this.position = bot.entity.position.clone();
         this.velocity = bot.entity.velocity.clone();
         this.onGround = bot.entity.onGround;
@@ -101,7 +103,7 @@ export class PlayerState {
         }
     }
 
-    public update(bot: Bot, control?: PlayerControls): void {
+    public update(bot: Bot, control?: PlayerControls): PlayerState {
         // const bot.entity = bot instanceof bot.entity ? bot : bot.entity;
         // Input / Outputs
         this.position = bot.entity.position.clone();
@@ -148,6 +150,8 @@ export class PlayerState {
         } else {
             this.depthStrider = 0;
         }
+
+        return this;
     }
 
     public apply(bot: Bot): void {
@@ -169,9 +173,46 @@ export class PlayerState {
         bot.controlState = this.control.movements;
     }
 
-    // public clone() {
-    //     return new PlayerState(this.ctx, this.ctx.bot, this.control)
-    // }
+    public clone() {
+        const tmp = new PlayerState(this.ctx, this.bot, this.control);
+        this.position = this.position.clone();
+        tmp.velocity = this.velocity.clone();
+        tmp.onGround = this.onGround;
+        tmp.isInWater = this.isInWater;
+        tmp.isInLava = this.isInLava;
+        tmp.isInWeb = this.isInWeb;
+        tmp.isCollidedHorizontally = this.isCollidedHorizontally;
+        tmp.isCollidedVertically = this.isCollidedVertically;
+        tmp.sneakCollision = false; //TODO
+
+        //not sure what to do here, ngl.
+        tmp.jumpTicks = this.jumpTicks ?? 0;
+        tmp.jumpQueued = this.jumpQueued ?? false;
+
+        // Input only (not modified)
+        tmp.attributes = this.attributes;
+        tmp.yaw = this.yaw;
+        tmp.pitch = this.pitch;
+        tmp.control = this.control;
+
+        tmp.isUsingItem = this.isUsingItem
+        tmp.isUsingMainHand = this.isUsingMainHand
+        tmp.isUsingOffHand = this.isUsingOffHand
+
+        // effects
+        tmp.effects = this.effects;
+        tmp.statusEffectNames = this.statusEffectNames
+
+        tmp.jumpBoost = this.jumpBoost
+        tmp.speed = this.speed
+        tmp.slowness = this.slowness
+
+        tmp.dolphinsGrace = this.dolphinsGrace
+        tmp.slowFalling = this.slowFalling
+        tmp.levitation = this.levitation
+        tmp.depthStrider = this.depthStrider;
+        return tmp;
+    }
 
     public clearControlStates() {
         for (const key in this.control.movements) {

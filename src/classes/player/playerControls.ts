@@ -73,6 +73,10 @@ export class PlayerControls {
         this.movements[state] = false;
     }
 
+    public clone(): PlayerControls {
+        return new PlayerControls(this.movements.forward, this.movements.back, this.movements.left, this.movements.right, this.movements.jump, this.movements.sprint, this.movements.sneak, this.leftClick, this.rightClick, this.rotations.yaw, this.rotations.pitch)
+    }
+
     public setRot(dir: Vec3) {
         const tmp = MathUtils.dirToYawAndPitch(dir);
         this.rotations.yaw = tmp.yaw;

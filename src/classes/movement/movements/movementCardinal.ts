@@ -50,7 +50,7 @@ export class MovementCardinal extends BaseMovement {
 
                 if (this.ctx.blockInfo.shouldBreakBeforePlaceBlock(bl1)) {
                     if (!this.ctx.blockInfo.isBlockDiggable(bl1)) return; //TODO: add safety check. Definitely not stealing from mineflayer rn.
-                    this.toBreak.push(new BlockInteraction(IBlockType.BREAK, bl1.position as BetterBlockPos)); //TODO: add face placement? Also not stolen?
+                    this.toBreak.push(new BlockInteraction(IBlockType.BREAK, bl1.position)); //TODO: add face placement? Also not stolen?
                 }
                 this.toPlace.push(new BlockInteraction(IBlockType.PLACE, bl0.position, bl2.position));
                 this.cost += this.ctx.costInfo.getPlacementCost(this.ctx.moveInfo.scaffoldBlockCount, this.toPlace);

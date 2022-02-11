@@ -566,7 +566,6 @@ export class Physics {
             } else {
                 vel.y -= this.settings.gravity * gravityMultiplier;
             }
-            console.log(inertia)
             vel.y *= this.settings.airdrag;
             vel.x *= inertia;
             vel.z *= inertia;
@@ -648,6 +647,12 @@ export class Physics {
             strafe *= this.settings.sneakSpeed;
             forward *= this.settings.sneakSpeed;
         }
+
+        if (entity.isUsingItem) {
+            strafe *= this.settings.usingItemSpeed;
+            forward *= this.settings.usingItemSpeed;
+        }
+
 
         this.moveEntityWithHeading(entity, strafe, forward);
 

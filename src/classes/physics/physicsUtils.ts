@@ -1,8 +1,14 @@
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import md from "minecraft-data";
+import { Bot } from "mineflayer";
+import { Block } from "prismarine-block";
 import { Entity } from "prismarine-entity";
+import { promisify } from "util";
 import { Vec3 } from "vec3";
 import features from "./lib/features.json";
+import { PlayerState } from "./playerState";
+import { NewSimulations } from "./simulationsNew";
+import { NewJumpMovement } from "./tests/newJumpMovement";
 
 export function makeSupportFeature(mcData: md.IndexedData) {
     return (feature: string) => features.some(({ name, versions }) => name === feature && versions.includes(mcData.version.majorVersion!));
@@ -76,26 +82,74 @@ export function getBetweenRectangle(src: AABB, dest: AABB) {
         Math.max(src.maxZ, dest.maxZ)
     );
 
-
     //Math.max() only good for length, otherwise leave because we want good shit.
-    const innerAABBWidth = (outerAABB.maxX - outerAABB.minX) - (src.maxX - src.minX) - (dest.maxX - dest.minX);
-    const innerAABBLength = (outerAABB.maxZ - outerAABB.minZ) - (src.maxZ - src.minZ) - (dest.maxZ - dest.minZ);
-    const innerAABBHeight = (outerAABB.maxY - outerAABB.minY) - (src.maxY - src.minY) - (dest.maxY - dest.minY);
+    const innerAABBWidth = outerAABB.maxX - outerAABB.minX - (src.maxX - src.minX) - (dest.maxX - dest.minX);
+    const innerAABBLength = outerAABB.maxZ - outerAABB.minZ - (src.maxZ - src.minZ) - (dest.maxZ - dest.minZ);
+    const innerAABBHeight = outerAABB.maxY - outerAABB.minY - (src.maxY - src.minY) - (dest.maxY - dest.minY);
 
     //hm... could make a new AABB representing inner here.
     const outerCenter = outerAABB.getCenter();
-    const wFlip = Math.sign(innerAABBWidth)
-    const hFlip = Math.sign(innerAABBHeight)
-    const lFlip = Math.sign(innerAABBLength)
+    const wFlip = Math.sign(innerAABBWidth);
+    const hFlip = Math.sign(innerAABBHeight);
+    const lFlip = Math.sign(innerAABBLength);
     const innerAABB = new AABB(
-        outerCenter.x - wFlip * innerAABBWidth / 2,
-        outerCenter.y - hFlip * innerAABBHeight / 2,
-        outerCenter.z - lFlip * innerAABBLength / 2,
-        outerCenter.x + wFlip * innerAABBWidth / 2,
-        outerCenter.y + hFlip * innerAABBHeight / 2,
-        outerCenter.z + lFlip * innerAABBLength / 2,
+        outerCenter.x - (wFlip * innerAABBWidth) / 2,
+        outerCenter.y - (hFlip * innerAABBHeight) / 2,
+        outerCenter.z - (lFlip * innerAABBLength) / 2,
+        outerCenter.x + (wFlip * innerAABBWidth) / 2,
+        outerCenter.y + (hFlip * innerAABBHeight) / 2,
+        outerCenter.z + (lFlip * innerAABBLength) / 2
     );
     // const length = Math.sqrt(Math.max(0, innerAABBHeight) ** 2 + Math.max(0, innerAABBLength) ** 2 + Math.max(0, innerAABBWidth) ** 2);
-   
-    return innerAABB
+
+    return innerAABB;
+}
+
+
+function* arrayGenerator(array: any[]): Generator<[currentValue: Block, index: number, array: Block[]], void, unknown> {
+    for (let index = 0; index < array.length; index++) {
+        const currentValue = array[index];
+        yield [currentValue, index, array];
+    }
+}
+
+async function worker(id: number, gen: ReturnType<typeof arrayGenerator>, mapFn: Function, args: any[], result: any[]) {
+    // console.time(`Worker ${id}`);
+    for (let [currentValue, index, array] of gen) {
+        // console.time(`Worker ${id} --- index ${index} item ${currentValue.position}`);
+        result[index] = await mapFn(currentValue, ...args)
+        // console.timeEnd(`Worker ${id} --- index ${index} item ${currentValue.position}`);
+    }
+    // console.timeEnd(`Worker ${id}`);
+}
+
+export async function calculationConcurrency(
+    bot: Bot,
+    simulator: NewSimulations,
+    state: PlayerState,
+    goals: Block[],
+    limit = 50
+): Promise<Block[]> {
+    const result: Block[] = [];
+
+    if (goals.length === 0) {
+        return result;
+    }
+
+    const gen = arrayGenerator(goals);
+
+    limit = Math.min(limit, goals.length);
+
+    const workers = new Array(limit);
+    for (let i = 0; i < limit; i++) {
+        workers.push(
+            worker(i, gen, NewJumpMovement.checkValidity, [simulator, bot, state], result)
+        );
+    }
+
+    // console.log(`Initialized ${limit} workers`);
+
+    await Promise.all(workers);
+
+    return result;
 }

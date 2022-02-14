@@ -1,12 +1,11 @@
 import { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
 import md from "minecraft-data";
-import { MovementEnum } from "../utils/constants";
-import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "../utils/util";
+import { MovementEnum } from "../../utils/constants";
+import { cantGetBlockError, parentBrokeInPast, parentBrokeInPastBlock } from "../../utils/util";
 import { PathNode } from "../nodes/node";
-import { Block, loader as PBLoader } from "prismarine-block"
-import * as interactable from "./interactable.json"
-;
+import brokenImport, { loader, Block } from "prismarine-block"
+import interactable from "./interactable.json"
 
 const noNeedToBreakNames = new Set(["air", "cave_air", "void_air", "lava", "flowing_lava", "water", "flowing_water"]);
 
@@ -43,13 +42,16 @@ export class BlockInfo {
     public readonly openableIDs: Set<number> = new Set();
     public readonly slabIDs: Set<number> = new Set();
 
-    public readonly blockData;
+    public readonly blockData: typeof Block; // wtf are these imports lmfao
 
     public readonly cobwebIDs: Set<number> = new Set();
     public readonly lilypadID?: number;
 
     constructor(private bot: Bot, private data: md.IndexedData) {
-        this.blockData = PBLoader(bot.version)
+    
+        this.blockData = (brokenImport as any)(data)
+        console.log(loader, brokenImport, this.blockData)
+        // console.log(this.blockData)
    
         this.autoReplaceIDs = new Set();
         this.treatAsWaterIDs = new Set();
@@ -124,7 +126,7 @@ export class BlockInfo {
         this.fenceIDs = new Set()
         this.carpetIDs = new Set()
         this.openableIDs = new Set()
-        this.data.blocksArray.map(x => Block.fromStateId(x.minStateId ?? 0, 0)).forEach(block => {
+        this.data.blocksArray.map(x => this.blockData.fromStateId(x.minStateId ?? 0, 0)).forEach(block => {
           if (block.shapes.length > 0) {
             // Fences or any block taller than 1, they will be considered as non-physical to avoid
             // trying to walk on them

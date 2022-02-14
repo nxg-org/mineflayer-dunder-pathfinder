@@ -42,8 +42,9 @@ const TWENTY_TWO_PI_OVER_TWELVE = (22 * Math.PI) / 12;
 const TWENTY_THREE_PI_OVER_TWELVE = (23 * Math.PI) / 12;
 const TWENTY_FOUR_PI_OVER_TWELVE = (24 * Math.PI) / 12;
 
-const sleep = promisify(setTimeout);
-export class Simulations {
+export type SimulationData = { state: PlayerState; movements: MovementData };
+
+export class NewSimulations {
     public world: any; /*prismarine-world*/
     public predictiveWorld;
 
@@ -57,31 +58,32 @@ export class Simulations {
         controller: Controller,
         ticks = 1,
         state?: PlayerState,
-        bot?: Bot,
-        particles: boolean = false,
-        particleName: string = "flame"
-    ): Promise<PlayerState> {
+        data?: MovementData,
+        tickOffset = 0
+    ): Promise<SimulationData> {
         if (!state) {
             state = new PlayerState(this.physics, this.bot, ControlStateHandler.COPY_BOT(this.bot));
         }
-        let returnTime = false;
-        for (let i = 0; i < ticks; i++) {
+        if (!data) {
+            data = MovementData.DEFAULT(0);
+        }
+        for (let i = data.minInputTime; i < ticks + data.minInputTime; i++) {
             controller(state, i);
+
+            // console.log(state.controlState.jump, i)
+            data.setInputs(i, state.controlState);
+            data.setTarget(i, state.yaw, state.pitch, false);
             this.physics.simulatePlayer(state);
-            if (state.isInLava) returnTime = true;
-            if (goal(state)) {
-                onGoalReach(state);
-                returnTime = true;
-            }
-            if (bot) {
-                state.apply(bot);
-                await bot.waitForTicks(1);
-            }
+
+            await this.bot.util.sleep(300)
+
+          
+            // console.log("hey", state.position, state.control)
             if (true) {
-                // if (ticks % 10 === 0) {
+                // if (ticks % 3 === 0) {
                     this.bot.chat(
                         "/particle " +
-                            particleName +
+                            "flame" +
                             " " +
                             state.position.x.toFixed(4) +
                             " " +
@@ -92,13 +94,25 @@ export class Simulations {
                     );
                 // }
             }
-            if (returnTime) return state;
+
+            // const tmp = movements.inputStatesAndTimes[i - 1]
+
+            // if (tmp && tmp != state.control) {
+
+            // }
+            if (state.isInLava) return { state, movements: data };
+            if (goal(state)) {
+                onGoalReach(state);
+                data.setInputs(i + 1, state.controlState);
+                return { state, movements: data };
+            }
         }
 
-        return state;
+        // console.log("sim'd data",data);
+        return { state, movements: data };
     }
 
-    simulateUntilNextTick(state?: PlayerState): Promise<PlayerState> {
+    simulateUntilNextTick(state?: PlayerState): Promise<SimulationData> {
         return this.simulateUntil(
             () => false,
             () => {},
@@ -108,7 +122,7 @@ export class Simulations {
         );
     }
 
-    simulateUntilOnGround(ticks = 5, state?: PlayerState): Promise<PlayerState> {
+    simulateUntilOnGround(ticks = 5, state?: PlayerState): Promise<SimulationData> {
         return this.simulateUntil(
             (state) => state.onGround,
             () => {},
@@ -118,12 +132,10 @@ export class Simulations {
         );
     }
 
-    simulateData(goal: Vec3, data: MovementData, state?: PlayerState, bot?: Bot): Promise<PlayerState> {
-
-        // console.log("SIMULATING INPUTS FOR:", data.maxInputOffset);
+    simulateData(data: MovementData, state?: PlayerState): Promise<SimulationData> {
         return this.simulateUntil(
-            this.getReached(goal),
-            this.getCleanupPosition(),
+            (state) => false,
+            (state) => {},
             (state: PlayerState, ticks: number) => {
                 const tmp = data.inputStatesAndTimes[ticks + data.minInputTime];
 
@@ -137,24 +149,11 @@ export class Simulations {
                     state.pitch = tmp1.pitch;
                 }
 
-                this.bot.chat(
-                    "/particle " +
-                        "flame" +
-                        " " +
-            
-                        state.position.x.toFixed(4) +
-                        " " +
-                        state.position.y.toFixed(4) +
-                        " " +
-                        state.position.z.toFixed(4) +
-                        " 0 0 0 0 1"
-                );
-
-                // console.log("input?", tmp.sprint, "rotation?:", tmp1, "ticks:", ticks);
+                // console.log("input?", tmp, "rotation?:", tmp1, "ticks:", ticks);
             },
             data.maxInputOffset,
             state,
-            bot,
+            data
         );
     }
 
@@ -165,24 +164,30 @@ export class Simulations {
         jumpAfter = 0,
         ticks = 20,
         state?: PlayerState,
-        bot?: Bot,
-        particles: boolean = false
-    ): Promise<PlayerState> {
+        data?: MovementData,
+        tickOffset = 0
+    ): Promise<SimulationData> {
         return this.simulateUntil(
             this.getReached(goal),
-            this.getCleanupPosition(),
+            this.getCleanupPosition(goal),
             this.buildFullController(
-                this.getControllerJumpSprint(jump, sprint, jumpAfter),
                 this.getControllerStraightAim(goal),
                 this.getControllerStrafeAim(goal),
-                this.getControllerSmartMovement(goal, sprint)
+                this.getControllerSmartMovement(goal, sprint),
+                this.getControllerJumpSprint(jump, sprint, jumpAfter)
             ),
             ticks,
             state,
-            bot,
-            particles
+            data,
+            tickOffset
         );
     }
+
+    // bot._client.write('entity_action', {
+    //     entityId: bot.entity.id,
+    //     actionId: state ? 0 : 1,
+    //     jumpBoost: 0
+    //   })
 
     simulateBackUpBeforeJump(
         srcAABBs: AABB[],
@@ -191,23 +196,23 @@ export class Simulations {
         strafe = true,
         ticks = 20,
         state?: PlayerState,
-        bot?: Bot,
-        particles: boolean = false
-    ): Promise<PlayerState> {
+        data?: MovementData,
+        tickOffset = 0
+    ): Promise<SimulationData> {
         const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
         state ??= new PlayerState(this.physics, this.bot, ControlStateHandler.COPY_BOT(this.bot));
 
         return this.simulateUntil(
             (state) => state.position.xzDistanceTo(goal) < 0.1,
-            this.getCleanupPosition(),
+            this.getCleanupPosition(goal),
             this.buildFullController(aim, this.getControllerSmartMovement(goal, sprint), (state: PlayerState, ticks: number) => {
                 state.controlState.sprint = false;
                 state.controlState.sneak = true;
             }),
             ticks,
             state,
-            bot,
-            particles
+            data,
+            tickOffset
         );
     }
 
@@ -218,21 +223,20 @@ export class Simulations {
         sprint: boolean,
         ticks = 20,
         state?: PlayerState,
-        bot?: Bot,
-        particles: boolean = false
-    ): Promise<PlayerState> {
+        data?: MovementData,
+        tickOffset = 0
+    ): Promise<SimulationData> {
         state ??= new PlayerState(this.physics, this.bot, ControlStateHandler.COPY_BOT(this.bot));
         let jump = false;
         let changed = false;
         return this.simulateUntil(
             this.getReached(goalCorner),
-            this.getCleanupPosition(),
+            this.getCleanupPosition(goalCorner),
             this.buildFullController(
                 this.getControllerStraightAim(goalCorner),
                 this.getControllerStrafeAim(goalCorner),
                 this.getControllerSmartMovement(goalCorner, sprint),
                 (state: PlayerState, ticks: number) => {
-                    state.controlState.sneak = false;
                     // check if player is leaving src block collision
                     const playerBB = state.getAABB();
                     playerBB.expand(0, 1e-1, 0);
@@ -240,9 +244,9 @@ export class Simulations {
                         goalCorner.set(goalBlock.x + 0.5, goalBlock.y + 1, goalBlock.z + 0.5);
                         changed = true;
                     }
-
                     if (ticks > 1 && srcAABBs.every((src) => !src.intersects(playerBB)) && !jump) {
                         state.controlState.set("jump", true, ticks)
+                        console.log("wants jump?", goalBlock, "tick:", ticks)
                         jump = true;
                     } else {
                         state.controlState.set("jump", false, ticks)
@@ -251,8 +255,8 @@ export class Simulations {
             ),
             ticks,
             state,
-            bot,
-            particles
+            data,
+            tickOffset
         );
     }
 
@@ -260,14 +264,14 @@ export class Simulations {
         return (state: PlayerState) => {
             const delta = path[0].minus(state.position);
             // console.log(path[0], state.position, Math.abs(delta.x) <= 0.35, Math.abs(delta.z) <= 0.35, Math.abs(delta.y) < 1)
-            return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1 && (state.onGround || state.isInWater);
-            // return (delta.x >= -0.35 && delta.x <= 0.35) && (delta.z >= -0.35 && delta.z <= 0.35)&& (delta.y >= -1 && delta.y <= 1) && (state.onGround || state.isInWater);
+            return (Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1) && (state.onGround || state.isInWater);
         };
     }
 
-    getCleanupPosition(): OnGoalReachFunction {
+    getCleanupPosition(...path: Vec3[]): OnGoalReachFunction {
         return (state: PlayerState) => {
             state.clearControlStates();
+
             // console.log("made it");
             // state.position = path[0];
             // state.velocity.x = 0
@@ -345,25 +349,11 @@ export class Simulations {
                 state.controlState.forward = true;
                 state.controlState.sprint = sprint;
                 state.controlState.back = false;
-                // console.log("forward");
             } else {
                 state.controlState.forward = false;
                 state.controlState.back = false;
                 state.controlState.sprint = false;
-                // console.log("neither");
             }
-            // else {
-            //     state.control.movements.forward = false;
-            //     state.control.movements.sprint = false;
-            //     state.control.movements.back = false;
-            //     console.log("movement neither");
-            // }
-            // } else {
-            //     state.control.movements.forward = false;
-            //     state.control.movements.sprint = false;
-            //     state.control.movements.back = false;
-            //     // console.log("movement neither");
-            // }
         };
     }
 
@@ -373,49 +363,3 @@ export class Simulations {
         };
     }
 }
-
-// canStraightLine (path: Vec3[], sprint = false) {
-//   const reached = this.getReached(path)
-//   const state = this.simulateUntil(reached, this.getController(path[0], false, sprint), 200)
-//   if (reached(state)) return true
-
-//   if (sprint) {
-//     if (this.canSprintJump(path, 0)) return false
-//   } else {
-//     if (this.canWalkJump(path, 0)) return false
-//   }
-
-//   for (let i = 1; i < 7; i++) {
-//     if (sprint) {
-//       if (this.canSprintJump(path, i)) return true
-//     } else {
-//       if (this.canWalkJump(path, i)) return true
-//     }
-//   }
-//   return false
-// }
-
-// canStraightLineBetween (n1: Vec3, n2: Vec3) {
-//   const reached = (state: PlayerState) => {
-//     const delta = n2.minus(state.position)
-//     const r2 = 0.15 * 0.15
-//     return (delta.x * delta.x + delta.z * delta.z) <= r2 && Math.abs(delta.y) < 0.001 && (state.onGround || state.isInWater)
-//   }
-
-//   const state = new PlayerState(this.physics, this.bot, PlayerControls.COPY(this.bot))
-//   state.position.update(n1)
-//   this.simulateUntil(reached, this.getController(n2, false, true), Math.floor(5 * n1.distanceTo(n2)), state)
-//   return reached(state)
-// }
-
-// canSprintJump (path: Vec3[], jumpAfter = 0) {
-//   const reached = this.getReached(path)
-//   const state = this.simulateUntil(reached, this.getController(path[0], true, true, jumpAfter), 20)
-//   return reached(state)
-// }
-
-// canWalkJump (path: Vec3[], jumpAfter = 0) {
-//   const reached = this.getReached(path)
-//   const state = this.simulateUntil(reached, this.getController(path[0], true, false, jumpAfter), 20)
-//   return reached(state)
-// }

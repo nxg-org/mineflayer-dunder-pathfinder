@@ -5,7 +5,7 @@ import { Vec3 } from "vec3";
 import { BlockInfo, BlockCheck } from "../classes/blocks/blockInfo";
 import { BotActions } from "../classes/player/botActions";
 import { AdvancedPlayerControls, PlayerControls } from "../classes/player/playerControls";
-import { scaffoldBlocks } from "../classes/utils/constants";
+import { scaffoldBlocks } from "../utils/constants";
 import { CostInfo } from "../classes/player/costCalculator";
 
 const AABB = require("prismarine-physics/lib/aabb");
@@ -109,8 +109,8 @@ export class Pathfinder {
     moveTimer: number = 0;
 
     constructor(public bot: Bot, public botActions: BotActions, public costInfo: CostInfo, public blockInfo: BlockInfo) {
-        this.simControl = new PlayerControls(true, false, false, false, true, true, false);
-        this.botMove = new AdvancedPlayerControls();
+        this.simControl = new PlayerControls(true, false, false, false, true, true, false, false, false, NaN, NaN);
+        this.botMove = new AdvancedPlayerControls(true, false, false, false, true, true, false, false, false, NaN, NaN);
         // this.lastPos = { move: 0, ...this.bot.entity.position.floored() };
 
         bot.once("spawn", async () => {
@@ -763,26 +763,24 @@ export class Pathfinder {
                 }
                 this.bot.lookAt(
                     new Vec3(this.botMove.bucketTarget.x, this.botMove.bucketTarget.y, this.botMove.bucketTarget.z),
-                    true,
-                    () => {
-                        let leBlockAtCursor = this.bot.blockAtCursor(5);
-                        if (
-                            this.bot.entity.velocity.y <= -0.6518 &&
-                            this.botMove.bucketTimer <= 0 &&
-                            leBlockAtCursor &&
-                            leBlockAtCursor.position.x == myClutchCanidate.position.x &&
-                            leBlockAtCursor.position.y == myClutchCanidate.position.y &&
-                            leBlockAtCursor.position.z == myClutchCanidate.position.z &&
-                            Math.abs(myClutchCanidate.position.y - this.bot.entity.position.y) <= 5 &&
-                            this.botMove.bucketTimer <= 0 &&
-                            this.bot.heldItem &&
-                            this.bot.heldItem.name == "water_bucket"
-                        ) {
-                            this.botMove.bucketTimer = 5;
-                            this.bot.activateItem(false);
-                        }
-                    }
+                    true
                 );
+                    let leBlockAtCursor = this.bot.blockAtCursor(5);
+                    if (
+                        this.bot.entity.velocity.y <= -0.6518 &&
+                        this.botMove.bucketTimer <= 0 &&
+                        leBlockAtCursor &&
+                        leBlockAtCursor.position.x == myClutchCanidate.position.x &&
+                        leBlockAtCursor.position.y == myClutchCanidate.position.y &&
+                        leBlockAtCursor.position.z == myClutchCanidate.position.z &&
+                        Math.abs(myClutchCanidate.position.y - this.bot.entity.position.y) <= 5 &&
+                        this.botMove.bucketTimer <= 0 &&
+                        this.bot.heldItem &&
+                        this.bot.heldItem.name == "water_bucket"
+                    ) {
+                        this.botMove.bucketTimer = 5;
+                        this.bot.activateItem(false);
+                }
             } else {
                 //console.log("AHHHHHH!!!! " + JSON.stringify(clutchCanidates) + ", " + myClutchCanidate);
             }
@@ -953,10 +951,10 @@ export class Pathfinder {
 
             //Executing the path
             if (true) {
-                this.botMove.forward = true;
-                this.botMove.sprint = this.pathfinderOptions.sprint;
+                this.botMove.movements.forward = true;
+                this.botMove.movements.sprint = this.pathfinderOptions.sprint;
                 if (this.bot.targetDigBlock) {
-                    this.botMove.forward = false;
+                    this.botMove.movements.forward = false;
                 }
             }
 
@@ -1002,7 +1000,7 @@ export class Pathfinder {
                 );
                 if (this.bot.entity.position.y <= myMove.y - 0.25 || lavaCheckY0 || lavaCheckY1 || waterCheckY0 || waterCheckY1) {
                     if (!lavaCheckY0 && !lavaCheckY1) {
-                        this.botMove.jump = true;
+                        this.botMove.movements.jump = true;
                     } else if (
                         this.bot.entity.velocity.y < 1.0 &&
                         Math.floor(this.bot.entity.position.x) == this.lastPos.x &&
@@ -1012,10 +1010,10 @@ export class Pathfinder {
                     ) {
                         this.bot.entity.velocity.y += 0.1;
                         console.log("EEEEEEE");
-                        this.botMove.jump = true;
+                        this.botMove.movements.jump = true;
                     }
                 }
-                this.botMove.sprint = false;
+                this.botMove.movements.sprint = false;
                 //if (dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.25)) {botMove.forward = false;}
             } else if (
                 ((myMove.mType == "walk" && dist3d(this.lastPos.x, 0, this.lastPos.z, myMove.x, 0, myMove.z) > Math.sqrt(3)) ||
@@ -1063,15 +1061,15 @@ export class Pathfinder {
                         //qwerty
                         if (myMove.y > this.lastPos.y && myWalkAngle - myAngle > 0.25) {
                             console.log("R");
-                            this.botMove.right = true;
+                            this.botMove.movements.right = true;
                         } else if (myMove.y > this.lastPos.y && myWalkAngle - myAngle < -0.25) {
                             console.log("L");
-                            this.botMove.left = true;
+                            this.botMove.movements.left = true;
                         }
                     }
                     if (this.botMove.lastTimer < 0 && this.botMove.isGrounded) {
                         // >= 0
-                        this.botMove.jump = true;
+                        this.botMove.movements.jump = true;
                     }
                     if (
                         myMove.y > this.lastPos.y ||
@@ -1093,7 +1091,7 @@ export class Pathfinder {
                     (Math.abs(myMove.x - this.lastPos.x) >= 3 || Math.abs(myMove.z - this.lastPos.z) >= 3 || myMove.y == this.lastPos.y)
                 ) {
                     //This is a fall
-                    this.botMove.sprint = false;
+                    this.botMove.movements.sprint = false;
                 } else if (
                     (myMove.y <= this.lastPos.y &&
                         dist3d(this.bot.entity.position.x, 0, this.bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <=
@@ -1105,7 +1103,7 @@ export class Pathfinder {
                             .y /*&& dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.5)*/
                 ) {
                     //straight up or straight down
-                    this.botMove.sprint = false;
+                    this.botMove.movements.sprint = false;
                 }
                 let lastPosIsLegit = false;
                 let lastPosSameDir = true;
@@ -1123,25 +1121,25 @@ export class Pathfinder {
                     Math.abs(myMove.z - this.lastPos.z) == 2 /* && !lastPosIsLegit | !lastPosSameDir*/
                 ) {
                     //don't sprint on 1 block gaps
-                    this.botMove.sprint = false;
+                    this.botMove.movements.sprint = false;
                     //console.log("Slow down!");
                 }
             } else if (myMove.mType == "swimSlow") {
                 this.shouldSwimFast = false;
-                this.botMove.forward = true;
+                this.botMove.movements.forward = true;
                 if (
                     this.bot.entity.position.y <
                         myMove.y + this.blockInfo.slabSwimTarget(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!) ||
                     (this.bot.entity.position.y < myMove.y + 1.5 &&
                         !this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, BlockCheck.WATER))
                 ) {
-                    this.botMove.jump = true;
+                    this.botMove.movements.jump = true;
                 } else if (
                     this.bot.entity.position.y >
                         myMove.y + 0.2 + this.blockInfo.slabSwimTarget(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!) &&
                     this.blockInfo.getBlockInfo(this.bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z))!, BlockCheck.WATER)
                 ) {
-                    this.botMove.sneak = true;
+                    this.botMove.movements.sneak = true;
                     if (this.bot.entity.velocity.y > -1.0) {
                         this.bot.entity.velocity.y -= 0.01;
                     }
@@ -1188,25 +1186,25 @@ export class Pathfinder {
                     this.movesToGo[this.lastPos.currentMove].y +
                         this.blockInfo.slabSwimTarget(this.bot.blockAt(new Vec3(myMove.x, myMove.y, myMove.z))!)
             ) {
-                this.botMove.jump = true;
+                this.botMove.movements.jump = true;
             }
             if (this.bot.targetDigBlock) {
                 this.botIsDigging = 2;
             }
             if (this.botIsDigging > 0 && !isSwim(myMove.mType)) {
-                this.botMove.jump = false;
+                this.botMove.movements.jump = false;
             }
 
             //if (lookAtNextDelay <= 0) {
-            if (this.botMove.jump) {
+            if (this.botMove.movements.jump) {
                 this.botMove.faceBackwards = -2;
             }
             if (this.botMove.mlg <= 0 && this.botMove.bucketTimer <= 0 && !this.jumpTarget) {
                 if (this.botMove.faceBackwards <= 0) {
                     this.bot.lookAt(new Vec3(myMove.x + 0.5, this.botLookAtY, myMove.z + 0.5), true);
                 } else {
-                    this.botMove.forward = !this.botMove.forward;
-                    this.botMove.back = !this.botMove.back;
+                    this.botMove.movements.forward = !this.botMove.movements.forward;
+                    this.botMove.movements.back = !this.botMove.movements.back;
                     this.bot.lookAt(
                         new Vec3(
                             this.bot.entity.position.x + (this.bot.entity.position.x - (this.movesToGo[this.lastPos.currentMove].x + 0.5)),
@@ -1257,7 +1255,7 @@ export class Pathfinder {
                     this.bot.entity.position.z - 0.2 > goalBox.z)
             ) {
                 this.lastPos = { currentMove: this.lastPos.currentMove - 1, x: myMove.x, y: myMove.y, z: myMove.z };
-                this.botMove.jump = false;
+                this.botMove.movements.jump = false;
                 this.botMove.lastTimer = 1;
                 if (this.lastPos.currentMove < this.movesToGo.length - 2) {
                     this.movesToGo.splice(this.lastPos.currentMove + 1, this.movesToGo.length);
@@ -1294,13 +1292,13 @@ export class Pathfinder {
             this.jumpSprintOnMoves(new PlayerState(this.bot, this.simControl), 2);
         }
         if ((this.botSearchingPath <= 0 || (this.onPath && this.movesToGo.length > 4)) && !this.jumpTarget) {
-            this.bot.setControlState("jump", this.botMove.jump);
-            this.bot.setControlState("forward", this.botMove.forward);
-            this.bot.setControlState("back", this.botMove.back);
-            this.bot.setControlState("left", this.botMove.left);
-            this.bot.setControlState("right", this.botMove.right);
-            this.bot.setControlState("sprint", this.botMove.sprint);
-            this.bot.setControlState("sneak", this.botMove.sneak);
+            this.bot.setControlState("jump", this.botMove.movements.jump);
+            this.bot.setControlState("forward", this.botMove.movements.forward);
+            this.bot.setControlState("back", this.botMove.movements.back);
+            this.bot.setControlState("left", this.botMove.movements.left);
+            this.bot.setControlState("right", this.botMove.movements.right);
+            this.bot.setControlState("sprint", this.botMove.movements.sprint);
+            this.bot.setControlState("sneak", this.botMove.movements.sneak);
         } else if (!this.jumpTarget) {
             this.bot.clearControlStates();
         }
@@ -3219,8 +3217,8 @@ export class Pathfinder {
                 this.equipTool( myMove.x, myMove.y + 1, myMove.z);
                 //console.log(bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z)));
                 this.digBlock( myMove.x, myMove.y + 1, myMove.z);
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             } else if (
@@ -3231,8 +3229,8 @@ export class Pathfinder {
                 console.log("DigForward B");
                 this.equipTool( myMove.x, myMove.y, myMove.z);
                 this.digBlock( myMove.x, myMove.y, myMove.z);
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             }
@@ -3252,9 +3250,9 @@ export class Pathfinder {
                 this.equipTool( Math.floor(this.lastPos.x), myMove.y + 1, Math.floor(this.lastPos.z));
                 //console.log(bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z)));
                 this.digBlock( Math.floor(this.lastPos.x), myMove.y + 1, Math.floor(this.lastPos.z));
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
-                this.botMove.jump = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
+                this.botMove.movements.jump = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             } else if (this.blockSolid( myMove.x, myMove.y + 1, myMove.z) && this.canDigBlock(myMove.x, myMove.y + 1, myMove.z)) {
@@ -3262,9 +3260,9 @@ export class Pathfinder {
                 this.equipTool( myMove.x, myMove.y + 1, myMove.z);
                 //console.log(bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z)));
                 this.digBlock( myMove.x, myMove.y + 1, myMove.z);
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
-                this.botMove.jump = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
+                this.botMove.movements.jump = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             } else if (
@@ -3275,9 +3273,9 @@ export class Pathfinder {
                 console.log("Dig Up C");
                 this.equipTool( myMove.x, myMove.y, myMove.z);
                 this.digBlock( myMove.x, myMove.y, myMove.z);
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
-                this.botMove.jump = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
+                this.botMove.movements.jump = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             }
@@ -3291,9 +3289,9 @@ export class Pathfinder {
                 this.equipTool( myMove.x, myMove.y + 1, myMove.z);
                 //console.log(bot.blockAt(new Vec3(myMove.x, myMove.y + 1, myMove.z)));
                 this.digBlock( myMove.x, myMove.y + 1, myMove.z);
-                this.botMove.forward = false;
-                this.botMove.sprint = false;
-                this.botMove.jump = false;
+                this.botMove.movements.forward = false;
+                this.botMove.movements.sprint = false;
+                this.botMove.movements.jump = false;
                 this.botIsDigging = 2;
                 this.busyBuilding = true;
             } else if (this.breakAndPlaceBlock(myMove.x, myMove.y - 1, myMove.z, true)) {
@@ -3322,14 +3320,14 @@ export class Pathfinder {
                 (dist3d(this.bot.entity.position.x, 0, this.bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= Math.sqrt(0.5))) /*|
             myMove.y != lastPos.y & dist3d(bot.entity.position.x, 0, bot.entity.position.z, myMove.x + 0.5, 0, myMove.z + 0.5) <= dist3d(0, 0, 0, 3, 3, 3)*/
         ) {
-            this.botMove.forward = false;
-            this.botMove.sprint = false;
-            this.botMove.sneak = true;
+            this.botMove.movements.forward = false;
+            this.botMove.movements.sprint = false;
+            this.botMove.movements.sneak = true;
             if (
                 dist3d(this.bot.entity.position.x, 0, this.bot.entity.position.z, this.lastPos.x + 0.5, 0, this.lastPos.z + 0.5) >=
                 Math.sqrt(0.35)
             ) {
-                this.botMove.back = true;
+                this.botMove.movements.back = true;
             }
             if (this.breakAndPlaceBlock(myMove.x, myMove.y - 1, myMove.z, true)) {
                 this.equipTool( myMove.x, myMove.y - 1, myMove.z);

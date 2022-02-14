@@ -4,7 +4,7 @@ import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
 import { PredictiveFunction } from "./goalTypes";
 import {  PathNode } from "../nodes/node";
-import { distanceXZ } from "../utils/util";
+import { distanceXZ } from "../../utils/util";
 
 
 export interface BaseGoalOptions {

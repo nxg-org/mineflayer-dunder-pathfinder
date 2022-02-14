@@ -4,6 +4,8 @@ import { BotActions } from "./classes/player/botActions";
 import { CostInfo } from "./classes/player/costCalculator";
 import { Pathfinder } from "./tests/pathfinder";
 import md from "minecraft-data"
+
+import Registry from "prismarine-registry"
 export class PathfinderBuilder {
 
 
@@ -14,7 +16,7 @@ export class PathfinderBuilder {
     public pathfinder: Pathfinder
 
     constructor(private bot: Bot) {
-        this.data = md(bot.version)
+        this.data = Registry(bot.version)
         this.blockInfo = new BlockInfo(this.bot, this.data)
         this.costInfo = new CostInfo(this.bot, this.blockInfo, this.data)
         this.botActions = new BotActions(this.bot, this.costInfo);

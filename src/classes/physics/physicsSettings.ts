@@ -68,4 +68,11 @@ export class PhysicsSettings {
             this.lavaGravity = 0.02;
         }
     }
+
+
+    // May move this later.
+
+    public getHeight(obj: {}) {
+        this.bubbleColumnDrag
+    }
 }

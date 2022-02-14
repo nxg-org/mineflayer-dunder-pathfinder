@@ -2,11 +2,11 @@ import { Vec3 } from "vec3";
 import { MovementStatus } from "./movementStatus";
 import { MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import { Bot, ControlState } from "mineflayer";
-import { PlayerControls } from "../player/playerControls";
-import { MAX_COST } from "../utils/constants";
+import { ControlStateHandler, PlayerControls } from "../player/playerControls";
+import { MAX_COST } from "../../utils/constants";
 import { PlayerState } from "../physics/playerState";
 
-type ControlsIndexedByTick = { [tick: number]: PlayerControls };
+type ControlsIndexedByTick = { [tick: number]: ControlStateHandler };
 type TargetsIndexedByTick = { [tick: number]: MovementTarget };
 
 export class MovementTarget {
@@ -45,7 +45,8 @@ export class MovementData {
 
     //May remove this.
     public maxInputTime: number;
-    public minInputTime: number;
+    public maxInputOffset: number;
+    public readonly minInputTime: number;
 
     constructor(
         heuristicCost: number,
@@ -58,6 +59,7 @@ export class MovementData {
         this.inputStatesAndTimes = inputStatesAndTimes;
         this.minInputTime = minInputTime;
         this.maxInputTime = minInputTime;
+        this.maxInputOffset = 0;
     }
 
     public static DEFAULT(startTick: number) {
@@ -66,8 +68,12 @@ export class MovementData {
 
     public static DEFAULT_FROM_STATE(state: PlayerState, startTick: number) {
         const tmp: ControlsIndexedByTick = {};
-        tmp[startTick] = state.control;
+        tmp[startTick] = state.controlState;
         return new MovementData(MAX_COST, startTick, {}, tmp);
+    }
+
+    public length() {
+        return this.maxInputTime - this.minInputTime
     }
 
     /**
@@ -78,45 +84,78 @@ export class MovementData {
      */
     setInput(tickCountOffset: number, controlState: ControlState, state: boolean) {
         const tickCount = tickCountOffset + this.minInputTime;
-        if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
-        this.inputStatesAndTimes[tickCount] ??= PlayerControls.DEFAULT();
-        this.inputStatesAndTimes[tickCount].set(controlState, state);
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCountOffset
+        }
+        this.inputStatesAndTimes[tickCount] ??= ControlStateHandler.DEFAULT();
+        this.inputStatesAndTimes[tickCount][controlState] = state;
     }
 
     setInputRaw(tickCount: number, controlState: ControlState, state: boolean) {
-        if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
-        this.inputStatesAndTimes[tickCount] ??= PlayerControls.DEFAULT();
-        this.inputStatesAndTimes[tickCount].set(controlState, state);
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCount - this.maxInputTime;
+        }
+        this.inputStatesAndTimes[tickCount] ??= ControlStateHandler.DEFAULT();
+        this.inputStatesAndTimes[tickCount][controlState] = state;
     }
+
+    setInputs(tickCountOffset: number, controls: ControlStateHandler) {
+        const tickCount = tickCountOffset + this.minInputTime;
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCountOffset
+        }
+        this.inputStatesAndTimes[tickCount] = controls;
+
+    }
+
+    setInputsRaw(tickCount: number, controls: ControlStateHandler) {
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCount - this.maxInputTime;
+        }
+        this.inputStatesAndTimes[tickCount] = controls;
+
+    }
+
 
     /**
      * The ticks for set are OFFSETS, not a raw value.
      * @param tickCountOffset
      * @param sets
      */
-    setInputs(sets: ControlsIndexedByTick) {
+    setInputsMultipleTicks(sets: ControlsIndexedByTick) {
         for (const key in sets) {
-            const tickCount = Number(key) + this.minInputTime;
-            if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+            const tmp = Number(key)
+            const tickCount = tmp + this.minInputTime;
+            if (tickCount > this.maxInputTime) {
+                this.maxInputTime = tickCount;
+                this.maxInputOffset = tmp
+            }
             this.inputStatesAndTimes[tickCount] = sets[key];
         }
     }
 
-    setInputsRaw(sets: ControlsIndexedByTick) {
+    setInputsMultipleTicksRaw(sets: ControlsIndexedByTick) {
         for (const key in sets) {
             const tickCount = Number(key);
-            if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+            if (tickCount > this.maxInputTime) {
+                this.maxInputTime = tickCount;
+                this.maxInputOffset = tickCount - this.maxInputTime;
+            }
             this.inputStatesAndTimes[tickCount] = sets[key];
         }
     }
 
     clearInput(tickCountOffset: number, controlState: ControlState) {
         const tickCount = tickCountOffset + this.minInputTime;
-        this.inputStatesAndTimes[tickCount].clear(controlState);
+        this.inputStatesAndTimes[tickCount][controlState] = false
     }
 
     clearInputRaw(tickCount: number, controlState: ControlState) {
-        this.inputStatesAndTimes[tickCount].clear(controlState);
+        this.inputStatesAndTimes[tickCount][controlState] = false
     }
 
     clearInputs(tickOffsets: number[]) {
@@ -132,9 +171,21 @@ export class MovementData {
         }
     }
 
+    setTarget(tickCountOffset: number, yaw: number, pitch: number, forceRotations: boolean) {
+        const tickCount = tickCountOffset + this.minInputTime;
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCountOffset
+        }
+        this.targetsByTicks[tickCount] = new MovementTarget(yaw, pitch, forceRotations);
+    }
+
     setTargetDest(tickCountOffset: number, src: Vec3, dest: Vec3, forceRotations: boolean) {
         const tickCount = tickCountOffset + this.minInputTime;
-        if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCountOffset
+        }
         this.targetsByTicks[tickCount] = MovementTarget.fromDest(src, dest, forceRotations);
     }
     /**
@@ -145,12 +196,18 @@ export class MovementData {
      */
     setTargetDir(tickCountOffset: number, dir: Vec3, forceRotations: boolean) {
         const tickCount = tickCountOffset + this.minInputTime;
-        if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCountOffset
+        }
         this.targetsByTicks[tickCount] = MovementTarget.fromDir(dir, forceRotations);
     }
 
     setTargetRaw(tickCount: number, yaw: number, pitch: number, forceRotations: boolean) {
-        if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+        if (tickCount > this.maxInputTime) {
+            this.maxInputTime = tickCount;
+            this.maxInputOffset = tickCount - this.maxInputTime;
+        }
         this.targetsByTicks[tickCount] = new MovementTarget(yaw, pitch, forceRotations);
     }
 
@@ -161,8 +218,12 @@ export class MovementData {
      */
     setTargets(sets: TargetsIndexedByTick) {
         for (const key in sets) {
-            const tickCount = Number(key) + this.minInputTime;
-            if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+            const tmp = Number(key)
+            const tickCount = tmp + this.minInputTime;
+            if (tickCount > this.maxInputTime) {
+                this.maxInputTime = tickCount;
+                this.maxInputOffset = tmp
+            }
             this.targetsByTicks[tickCount] = sets[key];
         }
     }
@@ -170,7 +231,10 @@ export class MovementData {
     setTargetsRaw(sets: TargetsIndexedByTick) {
         for (const key in sets) {
             const tickCount = Number(key);
-            if (tickCount > this.maxInputTime) this.maxInputTime = tickCount;
+            if (tickCount > this.maxInputTime) {
+                this.maxInputTime = tickCount;
+                this.maxInputOffset = tickCount - this.maxInputTime;
+            }
             this.targetsByTicks[tickCount] = sets[key];
         }
     }

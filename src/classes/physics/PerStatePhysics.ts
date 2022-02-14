@@ -95,7 +95,7 @@ export class PerStatePhysics extends Physics {
         const oldOldVelZ = dz;
 
         //stepping until collision occurs.
-        if (entity.control.movements.sneak && entity.onGround && this.extras.doCollisions && !this.extras.ignoreVerticalCollisions) {
+        if (entity.controlState.sneak && entity.onGround && this.extras.doCollisions && !this.extras.ignoreVerticalCollisions) {
             const step = 0.05;
 
             // In the 3 loops below, y offset should be -1, but that doesnt reproduce vanilla behavior.
@@ -239,7 +239,7 @@ export class PerStatePhysics extends Physics {
             if (dx !== oldVelX) vel.x = 0;
             if (dz !== oldVelZ) vel.z = 0;
             if (dy !== oldVelY) {
-                if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.control.movements.sneak) {
+                if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.controlState.sneak) {
                     vel.y = -vel.y;
                 } else {
                     vel.y = 0;
@@ -530,7 +530,7 @@ export class PerStatePhysics extends Physics {
                 // Client-side sprinting (don't rely on server-side sprinting)
                 // setSprinting in LivingEntity.java
                 playerSpeedAttribute = attributes.deleteAttributeModifier(playerSpeedAttribute, this.settings.sprintingUUID); // always delete sprinting (if it exists)
-                if (entity.control.movements.sprint) {
+                if (entity.controlState.sprint) {
                     if (!attributes.checkAttributeModifier(playerSpeedAttribute, this.settings.sprintingUUID)) {
                         playerSpeedAttribute = attributes.addAttributeModifier(playerSpeedAttribute, {
                             uuid: this.settings.sprintingUUID,
@@ -552,7 +552,7 @@ export class PerStatePhysics extends Physics {
                 if (this.isOnLadder(pos)) {
                     vel.x = math.clamp(-this.settings.ladderMaxSpeed, vel.x, this.settings.ladderMaxSpeed);
                     vel.z = math.clamp(-this.settings.ladderMaxSpeed, vel.z, this.settings.ladderMaxSpeed);
-                    vel.y = Math.max(vel.y, entity.control.movements.sneak ? 0 : -this.settings.ladderMaxSpeed);
+                    vel.y = Math.max(vel.y, entity.controlState.sneak ? 0 : -this.settings.ladderMaxSpeed);
                 }
             }
 
@@ -561,7 +561,7 @@ export class PerStatePhysics extends Physics {
             if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
                 if (
                     this.isOnLadder(pos) &&
-                    (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.control.movements.jump))
+                    (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.controlState.jump))
                 ) {
                     vel.y = this.settings.ladderClimbSpeed; // climb ladder
                 }
@@ -625,7 +625,7 @@ export class PerStatePhysics extends Physics {
         if (Math.abs(vel.z) < this.settings.negligeableVelocity) vel.z = 0;
 
         // Handle inputs
-        if (entity.control.movements.jump || entity.jumpQueued) {
+        if (entity.controlState.jump || entity.jumpQueued) {
             if (entity.jumpTicks > 0) entity.jumpTicks--;
             if (entity.isInWater || entity.isInLava) {
                 vel.y += 0.04;
@@ -645,7 +645,7 @@ export class PerStatePhysics extends Physics {
                 if (entity.jumpBoost > 0) {
                     vel.y += 0.1 * entity.jumpBoost;
                 }
-                if (entity.control.movements.sprint) {
+                if (entity.controlState.sprint) {
                     const yaw = Math.PI - entity.yaw;
                     vel.x -= Math.sin(yaw) * 0.2;
                     vel.z += Math.cos(yaw) * 0.2;
@@ -657,10 +657,10 @@ export class PerStatePhysics extends Physics {
         }
         entity.jumpQueued = false;
 
-        let strafe = Number(entity.control.movements.left) - Number(entity.control.movements.right) * 0.98;
-        let forward = Number(entity.control.movements.forward) - Number(entity.control.movements.back) * 0.98;
+        let strafe = Number(entity.controlState.left) - Number(entity.controlState.right) * 0.98;
+        let forward = Number(entity.controlState.forward) - Number(entity.controlState.back) * 0.98;
 
-        if (entity.control.movements.sneak) {
+        if (entity.controlState.sneak) {
             // console.log("sneakin")
             // strafe *= this.physics.sneakSpeed;
             // forward *= this.physics.sneakSpeed;

@@ -1,5 +1,5 @@
 import { Vec3 } from "vec3";
-import { MAX_COST, MovementEnum } from "../utils/constants";
+import { MAX_COST, MovementEnum } from "../../utils/constants";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { BlockInteraction, IBlockType } from "../blocks/blockInteraction";
 import { PathNode } from "../nodes/node";

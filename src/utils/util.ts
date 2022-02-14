@@ -2,7 +2,7 @@ import { Bot, EquipmentDestination } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";
 import { FakeVec3, MovementEnum, SimulationControl, ToolPriority, toolsForMaterials, XYZ } from "./constants";
-import { PathNode } from "../nodes/node";
+import { PathNode } from "../classes/nodes/node";
 
 
 
@@ -157,4 +157,49 @@ export function distanceXZ(dx: number, dz: number) {
     dx = Math.abs(dx);
     dz = Math.abs(dz);
     return Math.abs(dx - dz) + Math.min(dx, dz) * Math.SQRT2;
+}
+
+
+import path, { resolve } from "path";
+import { promises } from "fs";
+
+async function* getFiles(dir: string): AsyncGenerator<string, void, unknown> {
+    const dirents = await promises.readdir(dir, { withFileTypes: true });
+    for (const dirent of dirents) {
+        const res = resolve(dir, dirent.name);
+        if (dirent.isDirectory()) {
+            yield* getFiles(res);
+        } else {
+            yield res;
+        }
+    }
+}
+
+export async function loadAllMachineContext() {
+    const behaviors = [];
+    const transitions = [];
+    const stateMachines = [];
+
+    const machineFiles = getFiles(path.join(__dirname, "./hiveInfo"));
+
+    for await (const file of machineFiles) {
+        if (!file.endsWith(".js")) continue;
+        const importee = (await import(file)).default;
+        if (!importee) continue; 
+        if (file.includes("/behaviors/")) {
+            behaviors.push(importee)
+        } else if (file.includes("/transitions/")) {
+            transitions.push(importee)
+        } else if (file.includes("/machines/")) {
+            stateMachines.push(importee)
+        }
+    }
+
+    return {behaviors, transitions, stateMachines}
+}
+
+const TWO_PI = 2 * Math.PI 
+export function wrapDegrees(degrees: number): number {
+    const tmp = degrees % 360;
+    return tmp < 0 ? tmp + TWO_PI : tmp
 }

@@ -1,12 +1,81 @@
-import { Bot, ControlState, Effect } from "mineflayer";
+import { Bot, ControlState, ControlStateStatus, Effect } from "mineflayer";
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
-import { PlayerControls } from "../player/playerControls";
+import { ControlStateHandler, PlayerControls } from "../player/playerControls";
 import { Physics } from "./physics";
 import * as nbt from "prismarine-nbt";
 import { Vec3 } from "vec3";
-import { getStatusEffectNamesForVersion, hash, hashAABB, isEntityUsingItem, makeSupportFeature, whichHandIsEntityUsing, whichHandIsEntityUsingBoolean } from "./physicsUtils";
+import {
+    getStatusEffectNamesForVersion,
+    hash,
+    hashAABB,
+    isEntityUsingItem,
+    makeSupportFeature,
+    whichHandIsEntityUsing,
+    whichHandIsEntityUsingBoolean,
+} from "./physicsUtils";
 // import { bot.entity } from "prismarine-entity";
 import md from "minecraft-data";
+
+ //0: STANDING, 1: FALL_FLYING, 2: SLEEPING, 3: SWIMMING, 4: SPIN_ATTACK, 5: SNEAKING, 6: LONG_JUMPING, 7: DYING
+export enum PlayerPoses {
+    STANDING,
+    FALL_FLYING,
+    SLEEPING,
+    SWIMMING,
+    SPIN_ATTACK, // dunno
+    SNEAKING,
+    LONG_JUMPING,
+    DYING
+}
+
+
+const defaultMoves: ControlStateHandler = ControlStateHandler.DEFAULT();
+
+//Utility class that wraps PlayerPoses.
+export class EntityDimensions {
+    public readonly width: number;
+    public readonly height: number;
+    public readonly fixed: boolean;
+
+    constructor(width: number, height: number, fixed: boolean) {
+        this.width = width;
+        this.height = height;
+        this.fixed = fixed;
+    }
+
+    public static scalable(f: number, f2: number): EntityDimensions {
+        return new EntityDimensions(f, f2, false);
+    }
+
+    public static fixed(f: number, f2: number): EntityDimensions {
+        return new EntityDimensions(f, f2, true);
+    }
+
+    makeBoundingBox(vec3: Vec3): AABB {
+        return this.makeBoundingBoxCoords(vec3.x, vec3.y, vec3.z);
+    }
+
+    public makeBoundingBoxCoords(d: number, d2: number, d3: number): AABB {
+        const f = this.width / 2.0;
+        const f2 = this.height;
+        return new AABB(d - f, d2, d3 - f, d + f, d2 + f2, d3 + f);
+    }
+
+    public scale(f: number): EntityDimensions {
+        return this.scaleRaw(f, f);
+    }
+
+    public scaleRaw(f: number, f2: number): EntityDimensions {
+        if (this.fixed || (f == 1.0 && f2 == 1.0)) {
+            return this;
+        }
+        return EntityDimensions.scalable(this.width * f, this.height * f2);
+    }
+
+    public toString(): String {
+        return "EntityDimensions w=" + this.width + ", h=" + this.height + ", fixed=" + this.fixed;
+    }
+}
 
 /**
  * Looking at this code, it's too specified towards players.
@@ -31,7 +100,7 @@ export class PlayerState {
     public attributes: any /* dunno yet */;
     public yaw: number;
     public pitch: number;
-    public control: PlayerControls;
+    public controlState: ControlStateHandler;
 
     public isUsingItem: boolean;
     public isUsingMainHand: boolean;
@@ -51,7 +120,7 @@ export class PlayerState {
     public readonly ctx: Physics;
     private readonly supportFeature: ReturnType<typeof makeSupportFeature>;
 
-    constructor(ctx: Physics, bot: Bot, control: PlayerControls) {
+    constructor(ctx: Physics, bot: Bot, control: ControlStateHandler) {
         this.supportFeature = makeSupportFeature(ctx.data);
         this.ctx = ctx;
         this.bot = bot;
@@ -73,11 +142,11 @@ export class PlayerState {
         this.attributes = (bot.entity as any).attributes;
         this.yaw = bot.entity.yaw;
         this.pitch = bot.entity.pitch;
-        this.control = control;
+        this.controlState = control;
 
         this.isUsingItem = isEntityUsingItem(bot.entity);
-        this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
-        this.isUsingOffHand = whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
+        this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem;
+        this.isUsingOffHand = whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem;
 
         // effects
         this.effects = bot.entity.effects;
@@ -103,7 +172,7 @@ export class PlayerState {
         }
     }
 
-    public update(bot: Bot, control?: PlayerControls): PlayerState {
+    public update(bot: Bot, control?: ControlStateHandler): PlayerState {
         // const bot.entity = bot instanceof bot.entity ? bot : bot.entity;
         // Input / Outputs
         this.position = bot.entity.position.clone();
@@ -123,11 +192,11 @@ export class PlayerState {
         this.attributes = (bot.entity as any).attributes;
         this.yaw = bot.entity.yaw;
         this.pitch = bot.entity.pitch;
-        this.control = control ?? this.control;
+        this.controlState = control ?? this.controlState;
 
         this.isUsingItem = isEntityUsingItem(bot.entity);
-        this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
-        this.isUsingOffHand = whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem
+        this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem;
+        this.isUsingOffHand = whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem;
 
         // effects
         this.effects = bot.entity.effects;
@@ -170,11 +239,11 @@ export class PlayerState {
         (bot as any).jumpQueued = this.jumpQueued;
         bot.entity.yaw = this.yaw;
         bot.entity.pitch = this.pitch;
-        bot.controlState = this.control.movements;
+        bot.controlState = this.controlState;
     }
 
     public clone() {
-        const tmp = new PlayerState(this.ctx, this.bot, this.control);
+        const tmp = new PlayerState(this.ctx, this.bot, this.controlState);
         this.position = this.position.clone();
         tmp.velocity = this.velocity.clone();
         tmp.onGround = this.onGround;
@@ -193,41 +262,93 @@ export class PlayerState {
         tmp.attributes = this.attributes;
         tmp.yaw = this.yaw;
         tmp.pitch = this.pitch;
-        tmp.control = this.control;
+        tmp.controlState = this.controlState;
 
-        tmp.isUsingItem = this.isUsingItem
-        tmp.isUsingMainHand = this.isUsingMainHand
-        tmp.isUsingOffHand = this.isUsingOffHand
+        tmp.isUsingItem = this.isUsingItem;
+        tmp.isUsingMainHand = this.isUsingMainHand;
+        tmp.isUsingOffHand = this.isUsingOffHand;
 
         // effects
         tmp.effects = this.effects;
-        tmp.statusEffectNames = this.statusEffectNames
+        tmp.statusEffectNames = this.statusEffectNames;
 
-        tmp.jumpBoost = this.jumpBoost
-        tmp.speed = this.speed
-        tmp.slowness = this.slowness
+        tmp.jumpBoost = this.jumpBoost;
+        tmp.speed = this.speed;
+        tmp.slowness = this.slowness;
 
-        tmp.dolphinsGrace = this.dolphinsGrace
-        tmp.slowFalling = this.slowFalling
-        tmp.levitation = this.levitation
+        tmp.dolphinsGrace = this.dolphinsGrace;
+        tmp.slowFalling = this.slowFalling;
+        tmp.levitation = this.levitation;
         tmp.depthStrider = this.depthStrider;
         return tmp;
     }
 
-    public clearControlStates() {
-        for (const key in this.control.movements) {
-            this.control.movements[key as ControlState] = false;
-        }
+
+    public merge(other: PlayerState) {
+         this.position = other.position.clone();
+        this.velocity = other.velocity.clone();
+        this.onGround = other.onGround;
+        this.isInWater = other.isInWater;
+        this.isInLava = other.isInLava;
+        this.isInWeb = other.isInWeb;
+        this.isCollidedHorizontally = other.isCollidedHorizontally;
+        this.isCollidedVertically = other.isCollidedVertically;
+        this.sneakCollision = false; //TODO
+
+        //not sure what to do here, ngl.
+        this.jumpTicks = other.jumpTicks ?? 0;
+        this.jumpQueued = other.jumpQueued ?? false;
+
+        // Input only (not modified)
+        this.attributes = other.attributes;
+        this.yaw = other.yaw;
+        this.pitch = other.pitch;
+        this.controlState = other.controlState;
+
+        this.isUsingItem = other.isUsingItem;
+        this.isUsingMainHand = other.isUsingMainHand;
+        this.isUsingOffHand = other.isUsingOffHand;
+
+        // effects
+        this.effects = other.effects;
+        this.statusEffectNames = other.statusEffectNames;
+
+        this.jumpBoost = other.jumpBoost;
+        this.speed = other.speed;
+        this.slowness = other.slowness;
+
+        this.dolphinsGrace = other.dolphinsGrace;
+        this.slowFalling = other.slowFalling;
+        this.levitation = other.levitation;
+        this.depthStrider = other.depthStrider;
+        return this;
 
     }
 
+    public clearControlStates(): PlayerState {
+        this.controlState = defaultMoves
+        return this
+        // console.log("hi", this.controlState)
+        // for (const key in this.controlState) {
+        //     this.controlState[key as ControlState] = false;
+        //     console.log(this.controlState[key as ControlState])
+        // }
+    }
+
     public getAABB(): AABB {
-        const w = this.ctx.settings.playerHalfWidth
-        return new AABB(this.position.x-w, this.position.y, this.position.z-w, this.position.x + w, this.position.y + this.ctx.settings.playerHeight, this.position.z +w)
+        const w = this.ctx.settings.playerHalfWidth;
+        return new AABB(
+            this.position.x - w,
+            this.position.y,
+            this.position.z - w,
+            this.position.x + w,
+            this.position.y + this.ctx.settings.playerHeight,
+            this.position.z + w
+        );
     }
 
     public getUnderlyingBlockAABBs(aabb?: AABB): AABB[] {
         //.expand(2e-1, 0, 2e-1)
-        return this.ctx.getSurroundingBBs(aabb ?? this.getAABB())
+        return this.ctx.getSurroundingBBs(aabb ?? this.getAABB());
     }
 }

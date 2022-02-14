@@ -10,8 +10,11 @@ import { Vec3 } from "vec3";
 import { Simulations } from "./simulations";
 import { Block } from "prismarine-block";
 import { PlayerState } from "./playerState";
-import { PlayerControls } from "../player/playerControls";
-import { getBetweenRectangle } from "./physicsUtils";
+import { ControlStateHandler, PlayerControls } from "../player/playerControls";
+import { calculationConcurrency, getBetweenRectangle } from "./physicsUtils";
+import { NewSimulations } from "./simulationsNew";
+import { MovementData } from "../movement/movementData";
+import { fuk, NewJumpMovement } from "./tests/newJumpMovement";
 
 class PredictiveGoal extends goals.GoalFollow {
     public readonly bot: Bot;
@@ -67,7 +70,6 @@ class PredictiveGoal extends goals.GoalFollow {
     }
 }
 
-console.log("shit");
 const bot = createBot({
     username: "physics_test",
     host: "localhost",
@@ -79,7 +81,8 @@ bot.loadPlugin(utilPlugin);
 bot.loadPlugin(tracker);
 
 let moves: Movements;
-let simulator: Simulations;
+let applier: Simulations;
+let simulator: NewSimulations;
 let physics: PerStatePhysics;
 let data: md.IndexedData;
 bot.once("spawn", () => {
@@ -103,257 +106,38 @@ bot.once("spawn", () => {
     // moves.countScaffoldingItems = () => 100;
     bot.util.move.movements = moves;
     bot.pathfinder.setMovements(moves);
-    simulator = new Simulations(bot, physics);
+    simulator = new NewSimulations(bot, physics);
+    applier = new Simulations(bot, physics);
     // (bot.pathfinder as any).enablePathShortcut = true
 
-    bot.physics.yawSpeed = 20;
+    // bot.physics.yawSpeed = 20;
 });
 
-class JumpMovement {
-    private bot: Bot;
-    public readonly state: PlayerState;
-    public readonly goalBlock: Block;
-    public readonly srcAABBs: AABB[];
-    public readonly closeToSrc: Vec3;
-    public readonly closeToDest: Vec3;
 
-    constructor(bot: Bot, goalBlock: Block, state?: PlayerState) {
-        this.bot = bot;
-        this.state = state ?? new PlayerState(physics, bot, PlayerControls.COPY_BOT(bot));
-        this.goalBlock = goalBlock;
-        this.srcAABBs = this.state.getUnderlyingBlockAABBs();
-        this.srcAABBs.forEach((src) => pastGoals.add("(" + src.minX + ", " + src.minY + ", " + src.minZ + ")"));
-        const dest = AABB.fromBlock(this.goalBlock.position);
-
-        //might as well calculate backup position since calc for ideal jump target requires this knowledge anyway.
-        // actually, this is a lie. Could get points. Let's try that out.
-        // update, not bothering.
-
-        const destPoints = dest.toArray();
-        [this.closeToSrc, this.closeToDest] = this.srcAABBs
-            .map((aabb) => {
-                const destTmp = [0, 0, 0];
-                const srcTmp = [0, 0, 0];
-                const betweenPoints = getBetweenRectangle(aabb, dest).toArray();
-                for (let i = 0; i < 3; i++) {
-                    if (
-                        betweenPoints[i] == destPoints[i] &&
-                        (betweenPoints[i + 3] == destPoints[i] || betweenPoints[i + 3] == destPoints[i + 3])
-                    ) {
-                        srcTmp[i] = (betweenPoints[i] + betweenPoints[i + 3]) / 2;
-                        destTmp[i] = (betweenPoints[i] + betweenPoints[i + 3]) / 2;
-                    } else if (betweenPoints[i] == destPoints[i] || betweenPoints[i + 3] == destPoints[i]) {
-                        srcTmp[i] = betweenPoints[i];
-                        destTmp[i] = betweenPoints[i + 3];
-                    } else {
-                        srcTmp[i] = betweenPoints[i + 3];
-                        destTmp[i] = betweenPoints[i];
-                    }
-                }
-
-                const closeToDest = new Vec3(destTmp[0], destTmp[1], destTmp[2]);
-                const closeToSrc = new Vec3(srcTmp[0], srcTmp[1], srcTmp[2]);
-                let tryIt;
-                if (destTmp[0] == srcTmp[0] && destTmp[1] == srcTmp[1] && destTmp[2] == srcTmp[2]) {
-                    tryIt = closeToDest.offset(0, 1, 0);
-                } else {
-                    const dir = closeToDest.minus(closeToSrc).normalize();
-                    tryIt = aabb.intersectsRay(closeToSrc, dir);
-                    tryIt = tryIt!.plus(tryIt!.minus(closeToSrc).normalize().scale(0.3));
-                }
-                return [tryIt, closeToDest.offset(0, 1, 0)]; //
-            })
-            .filter((i) => !!i[0])
-            .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!))[0];
-    }
-
-    public static async checkValidity(simulator: Simulations, bot: Bot, goalBlock: Block, state?: PlayerState, particles: boolean = false) {
-        state ??= new PlayerState(simulator.physics, bot, PlayerControls.COPY_BOT(bot));
-        const dest = AABB.fromBlock(goalBlock.position);
-        const srcAABBs = state.getUnderlyingBlockAABBs();
-        const destPoints = dest.toArray();
-        let closeToSrc;
-        let closeToDest;
-        const res = srcAABBs
-            .map((aabb) => {
-                const destTmp = [0, 0, 0];
-                const srcTmp = [0, 0, 0];
-                const betweenPoints = getBetweenRectangle(aabb, dest).toArray();
-                for (let i = 0; i < 3; i++) {
-                    if (
-                        betweenPoints[i] == destPoints[i] &&
-                        (betweenPoints[i + 3] == destPoints[i] || betweenPoints[i + 3] == destPoints[i + 3])
-                    ) {
-                        srcTmp[i] = (betweenPoints[i] + betweenPoints[i + 3]) / 2;
-                        destTmp[i] = (betweenPoints[i] + betweenPoints[i + 3]) / 2;
-                    } else if (betweenPoints[i] == destPoints[i] || betweenPoints[i + 3] == destPoints[i]) {
-                        srcTmp[i] = betweenPoints[i];
-                        destTmp[i] = betweenPoints[i + 3];
-                    } else {
-                        srcTmp[i] = betweenPoints[i + 3];
-                        destTmp[i] = betweenPoints[i];
-                    }
-                }
-                const closeToDest = new Vec3(destTmp[0], destTmp[1], destTmp[2]);
-                const closeToSrc = new Vec3(srcTmp[0], srcTmp[1], srcTmp[2]);
-                let tryIt;
-                if (destTmp[0] == srcTmp[0] && destTmp[1] == srcTmp[1] && destTmp[2] == srcTmp[2]) {
-                    tryIt = closeToDest.offset(0, 1, 0);
-                } else {
-                    const dir = closeToDest.minus(closeToSrc).normalize();
-                    tryIt = aabb.intersectsRay(closeToSrc, dir);
-                    tryIt = tryIt!.plus(tryIt!.minus(closeToSrc).normalize().scale(0.3));
-                }
-                return [tryIt, closeToDest.offset(0, 1, 0)]; //
-            })
-            .filter((i) => !!i[0])
-            .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!));
-
-        if (res.length === 0) return false;
-        [closeToSrc, closeToDest] = res[0];
-
-        // await simulator.simulateBackUpBeforeJump(srcAABBs, closeToSrc, true, true, 20, state, undefined);
-        // const shiftGoal = closeToDest.clone();
-        // await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, shiftGoal, goalBlock, true, 30, state, undefined);
-
-        return (
-            await JumpMovement.canMakeImmediateJump(simulator, closeToDest, state, false, particles) 
-            || await JumpMovement.noWindup(simulator, srcAABBs, closeToDest, goalBlock, state, false, particles) ||
-             await JumpMovement.jumpTechnicallyPossible(simulator, srcAABBs, closeToSrc, closeToDest, goalBlock, state, false, particles)
-            
-        );
-    }
-
-    static async canMakeImmediateJump(simulator: Simulations, closeToDest: Vec3, state: PlayerState, shift: boolean = false, particles: boolean = false) {
-        const testState = shift ?  state: state.clone();
-        await simulator.simulateSmartAim(closeToDest, true, true, 0, 30, testState, undefined, particles); // re-assignment unnecessary since changing org. state.
-        return simulator.getReached(closeToDest)(testState);
-    }
-
-    async canMakeImmediateJump(): Promise<boolean> {
-        const testState = this.state.clone();
-        await simulator.simulateSmartAim(this.closeToDest, true, true, 0, 30, testState); // re-assignment unnecessary since changing org. state.
-        return simulator.getReached(this.closeToDest)(testState);
-    }
-
-    static async noWindup(
-        simulator: Simulations,
-        srcAABBs: AABB[],
-        closeToDest: Vec3,
-        goalBlock: Block,
-        state: PlayerState,
-        shift: boolean = false, 
-        particles: boolean = false
-    ): Promise<boolean> {
-        const testState = shift ?  state: state.clone();
-        await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, closeToDest.clone(), goalBlock, true, 30, testState, undefined, particles); // re-assignment unnecessary since changing org. state.
-        return simulator.getReached(goalBlock.position.offset(0.5, 1, 0.5))(testState);
-    }
-
-    async noWindup(): Promise<boolean> {
-        const testState = this.state.clone();
-        await simulator.simulateJumpFromEdgeOfBlock(this.srcAABBs, this.closeToDest.clone(), this.goalBlock, true, 30, testState); // re-assignment unnecessary since changing org. state.
-        return simulator.getReached(this.goalBlock.position.offset(0.5, 1, 0.5))(testState);
-    }
-
-    static async jumpTechnicallyPossible(
-        simulator: Simulations,
-        srcAABBs: AABB[],
-        closeToSrc: Vec3,
-        closeToDest: Vec3,
-        goalBlock: Block,
-        state: PlayerState,
-        shift: boolean = false, 
-        particles: boolean = false
-    ): Promise<boolean> {
-        const testState = shift ?  state: state.clone();
-        simulator.getControllerStraightAim(closeToDest)(testState);
-        await simulator.simulateBackUpBeforeJump(srcAABBs, closeToSrc, true, true, 20, testState, undefined, particles);
-        await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, closeToDest.clone(), goalBlock, true, 30, testState, undefined, particles);
-        return simulator.getReached(goalBlock.position.offset(0.5, 1, 0.5))(testState);
-    }
-
-    async jumpTechnicallyPossible(): Promise<boolean> {
-        const testState = this.state.clone();
-        simulator.getControllerStraightAim(this.closeToDest)(testState);
-        await simulator.simulateBackUpBeforeJump(this.srcAABBs, this.closeToSrc, true, true, 20, testState);
-        await simulator.simulateJumpFromEdgeOfBlock(this.srcAABBs, this.closeToDest.clone(), this.goalBlock, true, 30, testState);
-        return simulator.getReached(this.goalBlock.position.offset(0.5, 1, 0.5))(testState);
-    }
-
-    /**
-     * Wasteful, instead re-use data from calc'd jumps.
-     */
-    async commitJump(): Promise<PlayerState> {
-        // console.log(this.closeToSrc, this.closeToDest)
-        this.bot.chat(
-            "/particle flame " +
-                this.closeToSrc.x.toFixed(4) +
-                " " +
-                (this.closeToSrc.y + 1).toFixed(4) +
-                " " +
-                this.closeToSrc.z.toFixed(4) +
-                " 0 0 0 0 1"
-        );
-        this.bot.chat(
-            "/particle flame " +
-                this.closeToDest.x.toFixed(4) +
-                " " +
-                (this.closeToDest.y + 1).toFixed(4) +
-                " " +
-                this.closeToDest.z.toFixed(4) +
-                " 0 0 0 0 1"
-        );
-
-        if (await this.canMakeImmediateJump()) {
-            return await simulator.simulateSmartAim(this.closeToDest, true, true, 0, 30, this.state, this.bot);
-        } else if (await this.noWindup()) {
-            return await simulator.simulateJumpFromEdgeOfBlock(
-                this.srcAABBs,
-                this.closeToDest.clone(),
-                this.goalBlock,
-                true,
-                30,
-                this.state,
-                this.bot
-            );
-        } else {
-            simulator.getControllerStraightAim(this.closeToDest)(this.state);
-            await simulator.simulateBackUpBeforeJump(this.srcAABBs, this.closeToSrc, true, true, 20, this.state, this.bot);
-            return await simulator.simulateJumpFromEdgeOfBlock(
-                this.srcAABBs,
-                this.closeToDest.clone(),
-                this.goalBlock,
-                true,
-                30,
-                this.state,
-                this.bot
-            );
-        }
-    }
+async function getValue(bot: Bot, simulator: NewSimulations, state: PlayerState | undefined, goal: Vec3): Promise<[goal: Vec3, data: fuk]> {
+    const tmp = await NewJumpMovement.checkValidity(goal, simulator, bot, state)
+    return [goal, tmp];
 }
-
-function calculatePath(goal: Vec3) {}
 
 let pathing = false;
 let debuggin = false;
 async function testSimAlongPath(username: string) {
     if (pathing) return;
     pathing = true;
+
     const ttarget = bot.nearestEntity((e) => e.username === username);
     if (!ttarget) {
         bot.chat("cant see target " + username);
         pathing = false;
         return;
     }
+    const state = new PlayerState(physics, bot, ControlStateHandler.COPY_BOT(bot));
     const pathGoal = ttarget.position.clone();
-    const state = new PlayerState(physics, bot, PlayerControls.COPY_BOT(bot));
-    const moves = [];
 
+    const moves: [block: Vec3, move: fuk][] = [];
     const goalReached = simulator.getReached(pathGoal);
     while (!goalReached(state) && pathing) {
         const src = state.position.floored().offset(0, -1, 0);
-        const srcAABBs = state.getUnderlyingBlockAABBs();
         let blocks = bot
             .findBlocks({
                 matching: (b: Block) => {
@@ -363,7 +147,7 @@ async function testSimAlongPath(username: string) {
                         xzdist <= 8 &&
                         xzdist >= 2 &&
                         ydist <= 1 &&
-                        // ydist > -8 &&
+                        ydist > -8 &&
                         !b.name.includes("air") &&
                         pathGoal.distanceTo(b.position) < pathGoal.distanceTo(src)
                     );
@@ -373,41 +157,62 @@ async function testSimAlongPath(username: string) {
                 count: 1000,
                 point: state.position,
             })
-            .filter((b) => bot.blockAt(b.offset(0, 1, 0))?.name === "air" && bot.blockAt(b.offset(0, 2, 0))?.name === "air");
-        console.log(blocks.length);
+            .filter((b) => bot.blockAt(b.offset(0, 1, 0))?.name === "air" && bot.blockAt(b.offset(0, 2, 0))?.name === "air").sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal)) //.slice(0, 20);
+        console.log(blocks.length, blocks.length < 5 ? blocks : "nah");
+
         const time = performance.now();
-        const results = await Promise.all(
+        // let results = await calculationConcurrency(bot, simulator, state, blocks.map(b => { return {position: b}}) as Block[]);
+        let results: [goal: Vec3, data: fuk][] = await Promise.all(
             blocks.map(async (b) => {
-               return await JumpMovement.checkValidity(simulator, bot, { position: b } as any, state, debuggin)
+                return await getValue(bot, simulator, undefined, b)
             })
         );
+        
 
-
+   
         console.log(state.position);
-        blocks = blocks.filter((_b, index) => results[index]).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
-        // .sort((a, b) => (a.distanceTo(src) + a.distanceTo(pathGoal)) - (b.distanceTo(src)) + b.distanceTo(pathGoal));
-        console.log("finished checking.", performance.now() - time, "ms.", blocks.length);
-        const block = blocks[0];
-        if (!block) {
-            bot.chat("couldn't find block.");
-            // pathing = false;
-            break;
-        } else {
-            moves.push(bot.blockAt(block)!);
-            state.position.set(block.x + 0.5, block.y + 1, block.z + 0.5)
-        }
-    }
-    bot.chat(`found a good path: ${pathGoal}`);
+        results = results.filter(sim => sim[1].success).sort(((a, b) => b[1].data!.state.position.distanceTo(pathGoal) - a[1].data!.state.position.distanceTo(pathGoal)))
+        // blocks = blocks.sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
+        // blocks = blocks.filter(b =>  NewJumpMovement.checkValidity(simulator, bot, { position: b } as any, state)).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
+        // blocks = blocks.filter((_b, index) => results[index]).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
+        console.log("finished checking.", performance.now() - time, "ms.", results.length);
 
+        const res = results[0];
+        if (!res) {
+            bot.chat("couldn't find block.");
+            break;
+        } 
+        if (!res[1]) {
+            break;
+        }
+
+        for (const key in res[1].data!.movements.inputStatesAndTimes) {
+            console.log(key, res[1].data!.movements.inputStatesAndTimes[key].sprint, res[1].data!.movements.inputStatesAndTimes[key].jump)
+        }
+        console.log(res[0], res[1].data!.state.position, res[1].type)
+        moves.push(res);
+        state.merge(res[1].data!.state);
+        // state.position = res.data!.state.position; 
+    
+    }
+
+    console.log("finished finding.")
     const res = (bot: Bot) => {
         const delta = bot.entity.position.minus(pathGoal);
         return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1 && (state.onGround || state.isInWater);
     };
+
     while (!res(bot)) {
+        state.update(bot, ControlStateHandler.DEFAULT())
         const wantedMove = moves.shift();
-        if (wantedMove) {
-            const move = new JumpMovement(bot, wantedMove);
-            await move.commitJump();
+        if (wantedMove && wantedMove[1].data) {
+            // const move = new NewJumpMovement(physics, simulator, applier, bot, wantedMove[0]);
+            // await move.commitJump();
+            // console.log(ControlStateHandler.COPY_BOT(bot))
+            // console.log(wantedMove, wantedMove[1].data.movements)
+
+            console.log("hm?:", wantedMove[1].data.movements.length())
+            await applier.simulateData(wantedMove[0], wantedMove[1].data.movements, undefined, bot)  //, undefined, bot)
         } else {
             bot.chat("No more moves.");
             break;
@@ -466,8 +271,9 @@ bot.on("chat", async (username, message) => {
             }
             pastGoals.add(block.position.toString());
 
-            const move = new JumpMovement(bot, block);
+            const move = new NewJumpMovement(physics, simulator, applier, bot, block.position);
             await move.commitJump();
+            console.log(ControlStateHandler.COPY_BOT(bot))
 
             break;
 
@@ -508,7 +314,7 @@ bot.on("chat", async (username, message) => {
             // /particle flame 2006.17 65.81 1920.36
 
             // await bot.waitForTicks(1);
-            const state = new PlayerState(physics, bot, PlayerControls.COPY_BOT(bot));
+            const state = new PlayerState(physics, bot, ControlStateHandler.COPY_BOT(bot));
             const srcAABBs = state.getUnderlyingBlockAABBs();
             srcAABBs.forEach((src) => pastGoals.add("(" + src.minX + ", " + src.minY + ", " + src.minZ + ")"));
             const dest = AABB.fromBlock(block1.position);
@@ -556,7 +362,7 @@ bot.on("chat", async (username, message) => {
                     const dir = closeToDest.minus(closeToSrc).normalize();
                     let tryIt = aabb.intersectsRay(closeToSrc, dir);
                     tryIt = tryIt!.plus(tryIt!.minus(closeToSrc).normalize().scale(0.3));
-                    return [tryIt, closeToDest.offset(0, 1, 0)]; //
+                    return [tryIt, closeToDest.y > closeToSrc.y ? closeToDest : closeToDest.offset(0, 1, 0)]; //
                 })
                 .filter((i) => !!i[0])
                 .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!))[0];
@@ -566,7 +372,7 @@ bot.on("chat", async (username, message) => {
                 "/particle flame " +
                     realGoals[0]!.x.toFixed(4) +
                     " " +
-                    (realGoals[0]!.y + 1).toFixed(4) +
+                    // realGoals[0]!.y.toFixed(4) +
                     " " +
                     realGoals[0]!.z.toFixed(4) +
                     " 0 0.5 0 0 10"
@@ -575,7 +381,7 @@ bot.on("chat", async (username, message) => {
                 "/particle flame " +
                     realGoals[1]!.x.toFixed(4) +
                     " " +
-                    (realGoals[1]!.y + 1).toFixed(4) +
+                    realGoals[1]!.y.toFixed(4) +
                     " " +
                     realGoals[1]!.z.toFixed(4) +
                     " 0 0.5 0 0 10"
@@ -584,12 +390,12 @@ bot.on("chat", async (username, message) => {
             // await bot.util.sleep(150);
 
             if (state.position.xzDistanceTo(realGoals[0]) > 0.1) {
-                await simulator.simulateBackUpBeforeJump(srcAABBs, realGoals[0], true, true, 20, state, bot);
+                await applier.simulateBackUpBeforeJump(srcAABBs, realGoals[0], true, true, 20, state, bot);
             }
 
             // await bot.lookAt(realGoals[1]!, false);
             // await bot.util.sleep(150);
-            await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, realGoals[1], block1, true, 30, state, bot);
+            await applier.simulateJumpFromEdgeOfBlock(srcAABBs, realGoals[1], block1.position, true, 30, state, bot);
 
             // await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoalPair[1]!, true, true, 30, state);
             bot.physicsEnabled = true;
@@ -599,7 +405,7 @@ bot.on("chat", async (username, message) => {
             pos = target.position;
 
             const src2 = bot.entity.position.clone().floored().offset(0, -1, 0);
-            // await simulator.simulateJumpFromEdgeOfBlock(bot, pos, true, true, 500);
+            await applier.simulateSmartAim(pos, true, false, 0, 500, undefined, bot);
             break;
         case "test":
             target = bot.nearestEntity((e) => e.username === username)!;

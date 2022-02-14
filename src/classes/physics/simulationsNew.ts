@@ -67,15 +67,15 @@ export class NewSimulations {
         if (!data) {
             data = MovementData.DEFAULT(0);
         }
-        for (let i = data.minInputTime; i < ticks + data.minInputTime; i++) {
+        for (let i = data.minInputTime + tickOffset; i < ticks + data.minInputTime + tickOffset; i++) {
             controller(state, i);
 
-            // console.log(state.controlState.jump, i)
-            data.setInputs(i, state.controlState);
+            // console.log(state.controlState, i)
+            data.setInputs(i, state.controlState.clone());
             data.setTarget(i, state.yaw, state.pitch, false);
             this.physics.simulatePlayer(state);
 
-            await this.bot.util.sleep(300)
+            // await this.bot.util.sleep(300)
 
           
             // console.log("hey", state.position, state.control)
@@ -103,7 +103,7 @@ export class NewSimulations {
             if (state.isInLava) return { state, movements: data };
             if (goal(state)) {
                 onGoalReach(state);
-                data.setInputs(i + 1, state.controlState);
+                data.setInputs(i + 1, state.controlState.clone());
                 return { state, movements: data };
             }
         }
@@ -153,7 +153,7 @@ export class NewSimulations {
             },
             data.maxInputOffset,
             state,
-            data
+            data,
         );
     }
 
@@ -165,7 +165,6 @@ export class NewSimulations {
         ticks = 20,
         state?: PlayerState,
         data?: MovementData,
-        tickOffset = 0
     ): Promise<SimulationData> {
         return this.simulateUntil(
             this.getReached(goal),
@@ -179,7 +178,7 @@ export class NewSimulations {
             ticks,
             state,
             data,
-            tickOffset
+            data?.maxInputOffset
         );
     }
 
@@ -197,11 +196,8 @@ export class NewSimulations {
         ticks = 20,
         state?: PlayerState,
         data?: MovementData,
-        tickOffset = 0
     ): Promise<SimulationData> {
         const aim = strafe ? this.getControllerStrafeAim(goal) : this.getControllerStraightAim(goal);
-        state ??= new PlayerState(this.physics, this.bot, ControlStateHandler.COPY_BOT(this.bot));
-
         return this.simulateUntil(
             (state) => state.position.xzDistanceTo(goal) < 0.1,
             this.getCleanupPosition(goal),
@@ -212,7 +208,7 @@ export class NewSimulations {
             ticks,
             state,
             data,
-            tickOffset
+            data?.maxInputOffset
         );
     }
 
@@ -224,9 +220,7 @@ export class NewSimulations {
         ticks = 20,
         state?: PlayerState,
         data?: MovementData,
-        tickOffset = 0
     ): Promise<SimulationData> {
-        state ??= new PlayerState(this.physics, this.bot, ControlStateHandler.COPY_BOT(this.bot));
         let jump = false;
         let changed = false;
         return this.simulateUntil(
@@ -245,18 +239,17 @@ export class NewSimulations {
                         changed = true;
                     }
                     if (ticks > 1 && srcAABBs.every((src) => !src.intersects(playerBB)) && !jump) {
-                        state.controlState.set("jump", true, ticks)
-                        console.log("wants jump?", goalBlock, "tick:", ticks)
+                        state.controlState.jump = true
                         jump = true;
                     } else {
-                        state.controlState.set("jump", false, ticks)
+                        state.controlState.jump = false
                     }
                 }
             ),
             ticks,
             state,
             data,
-            tickOffset
+            data?.maxInputOffset
         );
     }
 

@@ -2,19 +2,17 @@ import { Bot, createBot } from "mineflayer";
 import { goals, Move, Movements, pathfinder } from "mineflayer-pathfinder";
 import utilPlugin, { AABB, MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import tracker from "@nxg-org/mineflayer-tracker";
-import { PerStatePhysics } from "./PerStatePhysics";
+import { PerStatePhysics } from "../PerStatePhysics";
 import md from "minecraft-data";
-import { Physics } from "./physics";
+import { Physics } from "../physics";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
-import { Simulations } from "./simulations";
+import { Simulations } from "../simulations";
 import { Block } from "prismarine-block";
-import { PlayerState } from "./playerState";
-import { ControlStateHandler, PlayerControls } from "../player/playerControls";
-import { calculationConcurrency, getBetweenRectangle } from "./physicsUtils";
-import { NewSimulations } from "./simulationsNew";
-import { MovementData } from "../movement/movementData";
-import { fuk, NewJumpMovement } from "./tests/newJumpMovement";
+import { PlayerState } from "../playerState";
+import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
+import { getBetweenRectangle } from "../physicsUtils";
+import { JumpMovement } from "./oldJumpMovement";
 
 class PredictiveGoal extends goals.GoalFollow {
     public readonly bot: Bot;
@@ -81,8 +79,7 @@ bot.loadPlugin(utilPlugin);
 bot.loadPlugin(tracker);
 
 let moves: Movements;
-let applier: Simulations;
-let simulator: NewSimulations;
+let simulator: Simulations;
 let physics: PerStatePhysics;
 let data: md.IndexedData;
 bot.once("spawn", () => {
@@ -106,18 +103,12 @@ bot.once("spawn", () => {
     // moves.countScaffoldingItems = () => 100;
     bot.util.move.movements = moves;
     bot.pathfinder.setMovements(moves);
-    simulator = new NewSimulations(bot, physics);
-    applier = new Simulations(bot, physics);
+    simulator = new Simulations(bot, physics);
     // (bot.pathfinder as any).enablePathShortcut = true
 
     // bot.physics.yawSpeed = 20;
 });
 
-
-async function getValue(bot: Bot, simulator: NewSimulations, state: PlayerState | undefined, goal: Vec3): Promise<[goal: Vec3, data: fuk]> {
-    const tmp = await NewJumpMovement.checkValidity(goal, simulator, bot, state)
-    return [goal, tmp];
-}
 
 let pathing = false;
 let debuggin = false;
@@ -134,10 +125,11 @@ async function testSimAlongPath(username: string) {
     const state = new PlayerState(physics, bot, ControlStateHandler.COPY_BOT(bot));
     const pathGoal = ttarget.position.clone();
 
-    const moves: [block: Vec3, move: fuk][] = [];
+    const moves = [];
     const goalReached = simulator.getReached(pathGoal);
     while (!goalReached(state) && pathing) {
         const src = state.position.floored().offset(0, -1, 0);
+        const srcAABBs = state.getUnderlyingBlockAABBs();
         let blocks = bot
             .findBlocks({
                 matching: (b: Block) => {
@@ -147,7 +139,7 @@ async function testSimAlongPath(username: string) {
                         xzdist <= 8 &&
                         xzdist >= 2 &&
                         ydist <= 1 &&
-                        ydist > -8 &&
+                        // ydist > -8 &&
                         !b.name.includes("air") &&
                         pathGoal.distanceTo(b.position) < pathGoal.distanceTo(src)
                     );
@@ -157,62 +149,42 @@ async function testSimAlongPath(username: string) {
                 count: 1000,
                 point: state.position,
             })
-            .filter((b) => bot.blockAt(b.offset(0, 1, 0))?.name === "air" && bot.blockAt(b.offset(0, 2, 0))?.name === "air").sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal)) //.slice(0, 20);
-        console.log(blocks.length, blocks.length < 5 ? blocks : "nah");
-
+            .filter((b) => bot.blockAt(b.offset(0, 1, 0))?.name === "air" && bot.blockAt(b.offset(0, 2, 0))?.name === "air");
+        console.log(blocks.length);
         const time = performance.now();
-        // let results = await calculationConcurrency(bot, simulator, state, blocks.map(b => { return {position: b}}) as Block[]);
-        let results: [goal: Vec3, data: fuk][] = await Promise.all(
+        const results = await Promise.all(
             blocks.map(async (b) => {
-                return await getValue(bot, simulator, undefined, b)
+               return await JumpMovement.checkValidity(simulator, bot, { position: b } as any, state, debuggin)
             })
         );
-        
 
-   
+
         console.log(state.position);
-        results = results.filter(sim => sim[1].success).sort(((a, b) => b[1].data!.state.position.distanceTo(pathGoal) - a[1].data!.state.position.distanceTo(pathGoal)))
-        // blocks = blocks.sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
-        // blocks = blocks.filter(b =>  NewJumpMovement.checkValidity(simulator, bot, { position: b } as any, state)).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
-        // blocks = blocks.filter((_b, index) => results[index]).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
-        console.log("finished checking.", performance.now() - time, "ms.", results.length);
-
-        const res = results[0];
-        if (!res) {
+        blocks = blocks.filter((_b, index) => results[index]).sort((a, b) => a.distanceTo(pathGoal) - b.distanceTo(pathGoal));
+        console.log("finished checking.", performance.now() - time, "ms.", blocks.length);
+        const block = blocks[0];
+        if (!block) {
             bot.chat("couldn't find block.");
+            // pathing = false;
             break;
-        } 
-        if (!res[1]) {
-            break;
+        } else {
+            moves.push(bot.blockAt(block)!);
+            state.position.set(block.x + 0.5, block.y + 1, block.z + 0.5)
         }
-
-        for (const key in res[1].data!.movements.inputStatesAndTimes) {
-            console.log(key, res[1].data!.movements.inputStatesAndTimes[key].sprint, res[1].data!.movements.inputStatesAndTimes[key].jump)
-        }
-        console.log(res[0], res[1].data!.state.position, res[1].type)
-        moves.push(res);
-        state.merge(res[1].data!.state);
-        // state.position = res.data!.state.position; 
-    
     }
+    bot.chat(`found a good path: ${pathGoal}`);
 
-    console.log("finished finding.")
+    
     const res = (bot: Bot) => {
         const delta = bot.entity.position.minus(pathGoal);
         return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1 && (state.onGround || state.isInWater);
     };
 
     while (!res(bot)) {
-        state.update(bot, ControlStateHandler.DEFAULT())
         const wantedMove = moves.shift();
-        if (wantedMove && wantedMove[1].data) {
-            // const move = new NewJumpMovement(physics, simulator, applier, bot, wantedMove[0]);
-            // await move.commitJump();
-            // console.log(ControlStateHandler.COPY_BOT(bot))
-            // console.log(wantedMove, wantedMove[1].data.movements)
-
-            console.log("hm?:", wantedMove[1].data.movements.length())
-            await applier.simulateData(wantedMove[0], wantedMove[1].data.movements, undefined, bot)  //, undefined, bot)
+        if (wantedMove) {
+            const move = new JumpMovement(physics, simulator, bot, wantedMove.position);
+            await move.commitJump();
         } else {
             bot.chat("No more moves.");
             break;
@@ -271,9 +243,8 @@ bot.on("chat", async (username, message) => {
             }
             pastGoals.add(block.position.toString());
 
-            const move = new NewJumpMovement(physics, simulator, applier, bot, block.position);
+            const move = new JumpMovement(physics, simulator, bot, block.position);
             await move.commitJump();
-            console.log(ControlStateHandler.COPY_BOT(bot))
 
             break;
 
@@ -372,7 +343,7 @@ bot.on("chat", async (username, message) => {
                 "/particle flame " +
                     realGoals[0]!.x.toFixed(4) +
                     " " +
-                    // realGoals[0]!.y.toFixed(4) +
+                    realGoals[0]!.y.toFixed(4) +
                     " " +
                     realGoals[0]!.z.toFixed(4) +
                     " 0 0.5 0 0 10"
@@ -390,12 +361,12 @@ bot.on("chat", async (username, message) => {
             // await bot.util.sleep(150);
 
             if (state.position.xzDistanceTo(realGoals[0]) > 0.1) {
-                await applier.simulateBackUpBeforeJump(srcAABBs, realGoals[0], true, true, 20, state, bot);
+                await simulator.simulateBackUpBeforeJump(srcAABBs, realGoals[0], true, true, 20, state, bot);
             }
 
             // await bot.lookAt(realGoals[1]!, false);
             // await bot.util.sleep(150);
-            await applier.simulateJumpFromEdgeOfBlock(srcAABBs, realGoals[1], block1.position, true, 30, state, bot);
+            await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, realGoals[1], block1.position, true, 30, state, bot);
 
             // await simulator.simulateJumpFromEdgeOfBlock(bot, srcAABBs, realGoalPair[1]!, true, true, 30, state);
             bot.physicsEnabled = true;
@@ -405,7 +376,7 @@ bot.on("chat", async (username, message) => {
             pos = target.position;
 
             const src2 = bot.entity.position.clone().floored().offset(0, -1, 0);
-            await applier.simulateSmartAim(pos, true, false, 0, 500, undefined, bot);
+            await simulator.simulateSmartAim( pos, true, false, 0, 500, undefined, bot);
             break;
         case "test":
             target = bot.nearestEntity((e) => e.username === username)!;

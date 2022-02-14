@@ -77,8 +77,9 @@ export class NewJumpMovement {
             .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!))[0];
     }
 
-    public static async checkValidity(goalBlock: Vec3, simulator: NewSimulations, bot: Bot, state?: PlayerState): Promise<fuk> {
+    public static async checkValidity(goalBlock: Vec3, simulator: NewSimulations, bot: Bot, state?: PlayerState, data?: MovementData): Promise<fuk> {
         state ??= new PlayerState(simulator.physics, bot, ControlStateHandler.COPY_BOT(bot));
+        data ??= MovementData.DEFAULT_FROM_STATE(state, 0);
         const dest = AABB.fromBlock(goalBlock);
         const srcAABBs = state.getUnderlyingBlockAABBs();
         const destPoints = dest.toArray();
@@ -126,19 +127,20 @@ export class NewJumpMovement {
         // const shiftGoal = closeToDest.clone();
         // await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, shiftGoal, goalBlock, true, 30, state, undefined);
 
-        // const tmp = await NewJumpMovement.canMakeImmediateJump(simulator, closeToDest, state, false);
-        // if (tmp.success) return tmp;
-        const tmp2 = await NewJumpMovement.noWindup(simulator, srcAABBs, closeToDest, goalBlock, state, false);
+        const tmp = await NewJumpMovement.canMakeImmediateJump(simulator, closeToDest, state, data, false);
+        if (tmp.success) return tmp;
+        const tmp2 = await NewJumpMovement.noWindup(simulator, srcAABBs, closeToDest, goalBlock, state, data, false);
         if (tmp2.success) return tmp2;
-        // const tmp3 = await  NewJumpMovement.jumpTechnicallyPossible(simulator, srcAABBs, closeToSrc, closeToDest, goalBlock, state, false);
-        // if (tmp3.success) return tmp3;
+        const tmp3 = await  NewJumpMovement.jumpTechnicallyPossible(simulator, srcAABBs, closeToSrc, closeToDest, goalBlock, state, data, false);
+        if (tmp3.success) return tmp3;
         return { success: false };
     }
 
-    static async canMakeImmediateJump(simulator: NewSimulations, closeToDest: Vec3, state: PlayerState, shift: boolean = false) {
+    static async canMakeImmediateJump(simulator: NewSimulations, closeToDest: Vec3, state: PlayerState, data: MovementData, shift: boolean = false) {
         const testState = shift ? state : state.clone();
-        const data = await simulator.simulateSmartAim(closeToDest, true, true, 0, 30, testState); // re-assignment unnecessary since changing org. state.
-        return { success: simulator.getReached(closeToDest)(testState), type: "immediate", data: data };
+        const testData = shift ? data : data.clone();
+        await simulator.simulateSmartAim(closeToDest, true, true, 0, 30, testState, testData); // re-assignment unnecessary since changing org. state.
+        return { success: simulator.getReached(closeToDest)(testState), type: "immediate",  data: {state: testState, movements: testData} };
     }
 
     async canMakeImmediateJump(): Promise<boolean> {
@@ -155,22 +157,14 @@ export class NewJumpMovement {
         closeToDest: Vec3,
         goalBlock: Vec3,
         state: PlayerState,
+        data: MovementData,
         shift: boolean = false
     ) {
         const testState = shift ? state : state.clone();
+        const testData = shift ? data : data.clone();
         const tmp = closeToDest.clone();
-        const data = await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, tmp, goalBlock, true, 30, testState); // re-assignment unnecessary since changing org. state.
-        for (const key in data!.movements.inputStatesAndTimes) {
-            console.log(
-                "outside:",
-                key,
-                data!.movements.inputStatesAndTimes[key].sprint,
-                data!.movements.inputStatesAndTimes[key].jump
-                    ? data!.movements.inputStatesAndTimes[key].jump
-                    : data!.movements.inputStatesAndTimes[key]
-            );
-        }
-        return { success: simulator.getReached(tmp)(testState), type: "no windup", data: data };
+        await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, tmp, goalBlock, true, 30, testState, testData); // re-assignment unnecessary since changing org. state.
+        return { success: simulator.getReached(tmp)(testState), type: "no windup",  data: {state: testState, movements: testData}};
     }
 
     async noWindup(): Promise<boolean> {
@@ -189,14 +183,16 @@ export class NewJumpMovement {
         closeToDest: Vec3,
         goalBlock: Vec3,
         state: PlayerState,
+        data: MovementData,
         shift: boolean = false
     ) {
         const testState = shift ? state : state.clone();
+        const testData = shift ? data : data.clone();
         const tmp = closeToDest.clone();
         simulator.getControllerStraightAim(closeToDest)(testState);
-        const data = await simulator.simulateBackUpBeforeJump(srcAABBs, closeToSrc, true, true, 20, testState);
-        await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, tmp, goalBlock, true, 30, data.state, data.movements);
-        return { success: simulator.getReached(tmp)(testState), type: "windup", data: data };
+        await simulator.simulateBackUpBeforeJump(srcAABBs, closeToSrc, true, true, 20, testState, testData);
+        await simulator.simulateJumpFromEdgeOfBlock(srcAABBs, tmp, goalBlock, true, 30, testState, testData);
+        return { success: simulator.getReached(tmp)(testState), type: "windup", data: {state: testState, movements: testData}};
     }
 
     async jumpTechnicallyPossible(): Promise<boolean> {

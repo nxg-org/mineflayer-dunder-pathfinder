@@ -76,6 +76,10 @@ export class MovementData {
         return this.maxInputTime - this.minInputTime
     }
 
+    public clone() {
+        return new MovementData(this.heuristicCost, this.minInputTime, this.targetsByTicks, this.inputStatesAndTimes)
+    }
+
     /**
      * May be more efficient with a different configuration, look into this later.
      * @param tickCount

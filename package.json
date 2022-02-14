@@ -24,7 +24,7 @@
         "test": "npx ts-node src/example.ts",
         "start": "node --trace-warnings lib/example.js",
 
-        "physics": "npx ts-node src/classes/physics/newTest.ts"
+        "physics": "npx ts-node src/classes/physics/tests/newTest.ts"
     },
     "dependencies": {
         "@nxg-org/mineflayer-tracker": "^1.1.0",

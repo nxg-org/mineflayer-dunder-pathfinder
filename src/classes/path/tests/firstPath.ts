@@ -16,10 +16,8 @@ const sleep = promisify(setTimeout);
 export class PathContext {
     public readonly physics: Physics;
     public readonly bot: Bot;
-    // public readonly state: PlayerState
     public readonly movementData: MovementData;
     public moves: NewJump[];
-    // public readonly sim: NewSims
 
     public pathing = false;
 
@@ -44,14 +42,14 @@ export class PathContext {
                     const xzdist = b.position.xzDistanceTo(src);
                     return (
                         xzdist <= 8 &&
-                        xzdist >= 2 &&
+                        // xzdist >= 2 &&
                         ydist <= 1 &&
                         // ydist > -8 &&
                         !b.name.includes("air") &&
                         goal.distanceTo(b.position) < goal.distanceTo(src)
                     );
                 },
-                // maxDistance: 10,
+                maxDistance: 100,
                 useExtraInfo: true,
                 count: 1000,
                 point: source,
@@ -79,9 +77,12 @@ export class PathContext {
             const jumps = blocks.map((b) => [b, new NewJump(this.physics, state.clone(), b)] as [goal: Vec3, jump: NewJump]);
             const res = await Promise.all(jumps.map(this.evaluate));
             let results = res.filter((sim) => sim[1].success) as [jump: NewJump, data: SuccessfulJumpData][];
+
+            //(NewJump.maxJumpTicks / a[1].data.movements.length()) *
+            //(NewJump.maxJumpTicks / b[1].data.movements.length()) *
             results = results.sort((a, b) => {
-                const atmp = (NewJump.maxJumpTicks / a[1].data.movements.length()) * a[0].closeToDest.distanceTo(goal);
-                const btmp = (NewJump.maxJumpTicks / b[1].data.movements.length()) * b[0].closeToDest.distanceTo(goal);
+                const atmp =  a[0].closeToDest.distanceTo(goal);
+                const btmp =  b[0].closeToDest.distanceTo(goal);
                 return atmp - btmp;
             });
 
@@ -116,9 +117,11 @@ export class PathContext {
             const jumps: [goal: Vec3, jump: NewJump][] = blocks.map((b) => [b, new NewJump(this.physics, state.clone(), b)]);
             const res = await Promise.all(jumps.map(this.evaluate));
             let results = res.filter((sim) => sim[1].success) as [jump: NewJump, data: SuccessfulJumpData][];
+           //(NewJump.maxJumpTicks / a[1].data.movements.length()) *
+            //(NewJump.maxJumpTicks / b[1].data.movements.length()) *
             results = results.sort((a, b) => {
-                const atmp = (NewJump.maxJumpTicks / a[1].data.movements.length()) * a[0].closeToDest.distanceTo(goal);
-                const btmp = (NewJump.maxJumpTicks / b[1].data.movements.length()) * b[0].closeToDest.distanceTo(goal);
+                const atmp =  a[0].closeToDest.distanceTo(goal);
+                const btmp =  b[0].closeToDest.distanceTo(goal);
                 return atmp - btmp;
             });
 

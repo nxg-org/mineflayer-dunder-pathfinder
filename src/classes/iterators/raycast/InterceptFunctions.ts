@@ -1,10 +1,12 @@
 import { Bot } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { RaycastIterator } from "./RaycastIterator";
+import { RaycastIterator } from "./Raycast";
 
 type Iteration = { x: number; y: number; z: number; face: number };
 type BlockAndIterations = { block: Block | null; iterations: Iteration[] };
+
+
 export class InterceptFunctions {
     constructor(private bot: Bot) {}
 

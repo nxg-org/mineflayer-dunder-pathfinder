@@ -11,8 +11,8 @@ const structuredClone = (obj: any) => {
     return v8.deserialize(v8.serialize(obj));
 };
 
-type ControlsIndexedByTick = { [tick: number]: ControlStateHandler };
-type TargetsIndexedByTick = { [tick: number]: MovementTarget };
+export type ControlsIndexedByTick = { [tick: number]: ControlStateHandler };
+export type TargetsIndexedByTick = { [tick: number]: MovementTarget };
 
 export class MovementTarget {
     public yaw: number;

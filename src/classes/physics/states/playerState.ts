@@ -15,7 +15,7 @@ import {
 } from "../extras/physicsUtils";
 // import { bot.entity } from "prismarine-entity";
 import md from "minecraft-data";
-import { CheapPhysicsBuilder } from "./cheapState";
+import { CheapPlayerStateBuilder } from "./cheapState";
 
  //0: STANDING, 1: FALL_FLYING, 2: SLEEPING, 3: SWIMMING, 4: SPIN_ATTACK, 5: SNEAKING, 6: LONG_JUMPING, 7: DYING
 export enum PlayerPoses {
@@ -83,7 +83,7 @@ export class EntityDimensions {
  *
  * I will eventually split this code into PlayerState and bot.entityState, where bot.entityState contains fewer controls.
  */
-export class PlayerState implements CheapPhysicsBuilder {
+export class PlayerState implements CheapPlayerStateBuilder {
     public readonly bot: Bot; // needed to clone.
     public position: Vec3;
     public velocity: Vec3;
@@ -304,7 +304,7 @@ export class PlayerState implements CheapPhysicsBuilder {
         this.attributes = other.attributes;
         this.yaw = other.yaw;
         this.pitch = other.pitch;
-        this.controlState = other.controlState;
+        this.controlState = other.controlState.clone();
 
         this.isUsingItem = other.isUsingItem;
         this.isUsingMainHand = other.isUsingMainHand;

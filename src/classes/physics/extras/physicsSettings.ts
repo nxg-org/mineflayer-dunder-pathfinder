@@ -1,4 +1,4 @@
-import { Physics } from "./physics";
+import { Physics } from "../engines/physics";
 
 type BubbleColumnInfo = {
     down: number;

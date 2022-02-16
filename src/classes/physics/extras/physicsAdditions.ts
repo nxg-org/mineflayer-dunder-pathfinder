@@ -61,7 +61,7 @@ export class PhysicsAdditions implements IPhysicsAdditions {
         return this.detectAnyway.has(hash(min.x, min.y, min.z, min.x + 1, min.y + 1, min.z + 1));
     }
     public detectAABBBlockPos(min: Vec3): void {
-        let aabb = new AABB(min.x, min.y, min.z, min.x + 1, min.y + 1, min.z + 1);
+        const aabb = new AABB(min.x, min.y, min.z, min.x + 1, min.y + 1, min.z + 1);
         this.detectAnyway.set(hash(min.x, min.y, min.z, min.x + 1, min.y + 1, min.z + 1), aabb);
     }
     public removeAABBBlockPos(min: Vec3): void {
@@ -75,7 +75,7 @@ export class PhysicsAdditions implements IPhysicsAdditions {
         return this.detectAnyway.has(hash(min.x, min.y, min.z, max.x, max.y, max.z));
     }
     public detectAABBVecs(min: Vec3, max: Vec3): void {
-        let aabb = new AABB(min.x, min.y, min.z, max.x, max.y, max.z);
+        const aabb = new AABB(min.x, min.y, min.z, max.x, max.y, max.z);
         this.detectAnyway.set(hash(min.x, min.y, min.z, max.x, max.y, max.z), aabb);
     }
     public removeAABBVecs(min: Vec3, max: Vec3): void {

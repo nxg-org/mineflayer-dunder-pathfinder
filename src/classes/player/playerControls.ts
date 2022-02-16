@@ -45,7 +45,7 @@ export class ControlStateHandler implements ControlStateStatus {
     }
 
     public set(state: ControlState, wanted: boolean, tick: number) {
-        console.trace("set jump:", wanted, tick)
+        console.trace("set jump:", wanted, tick);
         this[state] = wanted;
     }
 
@@ -61,14 +61,30 @@ export class ControlStateHandler implements ControlStateStatus {
         return new ControlStateHandler(this.forward, this.back, this.left, this.right, this.jump, this.sprint, this.sneak);
     }
 
-    *[Symbol.iterator]() {
-        yield this.forward;
-        yield this.back;
-        yield this.left;
-        yield this.right;
-        yield this.jump;
-        yield this.sprint;
-        yield this.sneak;
+    public equals(other: ControlStateHandler) {
+        return this.forward == other.forward &&
+            this.back == other.back &&
+            this.left == other.left &&
+            this.right == other.right &&
+            this.jump == other.jump &&
+            this.sprint == other.sprint &&
+            this.sneak == other.sneak;
+    }
+
+    public applyControls(bot: Bot): void {
+        for (const move of this) {
+            bot.setControlState(move[0], move[1]);
+        }
+    }
+
+    *[Symbol.iterator](): Generator<[state: ControlState, wanted: boolean], void, unknown> {
+        yield ["forward", this.forward];
+        yield ["back", this.back];
+        yield ["left", this.left];
+        yield ["right", this.right];
+        yield ["jump", this.jump];
+        yield ["sprint", this.sprint];
+        yield ["sneak", this.sneak];
     }
 }
 export class PlayerControls extends ControlStateHandler {
@@ -209,11 +225,11 @@ export class PlayerControls extends ControlStateHandler {
                 ctx.bot.activateItem(true);
             }
         }
-        // if (!isNaN(this.rotations.pitch) && !isNaN(this.rotations.yaw)) {
-        //     if (this.rotations.pitch !== ctx.bot.entity.pitch || this.rotations.yaw !== ctx.bot.entity.yaw) {
-        //         ctx.bot.look(this.rotations.yaw, this.rotations.pitch, forceRotations);
-        //     }
-        // }
+        if (!isNaN(this.pitch) && !isNaN(this.yaw)) {
+            if (this.pitch !== ctx.bot.entity.pitch || this.yaw !== ctx.bot.entity.yaw) {
+                ctx.bot.look(this.yaw, this.pitch, forceRotations);
+            }
+        }
     }
 }
 

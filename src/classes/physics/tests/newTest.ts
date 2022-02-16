@@ -2,17 +2,17 @@ import { Bot, createBot } from "mineflayer";
 import { goals, Move, Movements, pathfinder } from "mineflayer-pathfinder";
 import utilPlugin, { AABB, MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import tracker from "@nxg-org/mineflayer-tracker";
-import { PerStatePhysics } from "../PerStatePhysics";
+import { PerStatePhysics } from "../engines/PerStatePhysics";
 import md from "minecraft-data";
-import { Physics } from "../physics";
+import { Physics } from "../engines/physics";
 import { Entity } from "prismarine-entity";
 import { Vec3 } from "vec3";
-import { Simulations } from "../simulations";
+import { Simulations } from "../sims/simulations";
 import { Block } from "prismarine-block";
-import { PlayerState } from "../playerState";
+import { PlayerState } from "../extras/playerState";
 import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
-import { calculationConcurrency, getBetweenRectangle } from "../physicsUtils";
-import { NewSimulations } from "../simulationsNew";
+import { calculationConcurrency, getBetweenRectangle } from "../extras/physicsUtils";
+import { NewSimulations } from "../sims/simulationsNew";
 import { MovementData } from "../../movement/movementData";
 import { fuk, NewJumpMovement } from "./newJumpMovement";
 
@@ -374,7 +374,7 @@ bot.on("chat", async (username, message) => {
                 "/particle flame " +
                     realGoals[0]!.x.toFixed(4) +
                     " " +
-                    // realGoals[0]!.y.toFixed(4) +
+                    realGoals[0]!.y.toFixed(4) +
                     " " +
                     realGoals[0]!.z.toFixed(4) +
                     " 0 0.5 0 0 10"

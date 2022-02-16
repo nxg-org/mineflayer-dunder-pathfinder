@@ -61,8 +61,8 @@ export abstract class BaseMovement {
     public async applyState() {
         // await this.ctx.bot.look(this.state.target.yaw, this.state.target.pitch, this.state.target.forceRotations);
         for (let ind = this.state.minInputTime; ind <= this.state.maxInputTime; ind++) {
-            if (this.state.inputStatesAndTimes[ind]) {
-                this.state.inputStatesAndTimes[ind].apply(this.ctx);
+            if (this.state.inputsByTicks[ind]) {
+                this.state.inputsByTicks[ind].apply(this.ctx);
             }
             const tmp = this.state.targetsByTicks[ind];
             if (tmp) {

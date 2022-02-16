@@ -1,7 +1,7 @@
 import { Bot, ControlState, ControlStateStatus, Effect } from "mineflayer";
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
-import { ControlStateHandler, PlayerControls } from "../player/playerControls";
-import { Physics } from "./physics";
+import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
+import { Physics } from "../engines/physics";
 import * as nbt from "prismarine-nbt";
 import { Vec3 } from "vec3";
 import {
@@ -120,7 +120,7 @@ export class PlayerState {
     public readonly ctx: Physics;
     private readonly supportFeature: ReturnType<typeof makeSupportFeature>;
 
-    constructor(ctx: Physics, bot: Bot, control: ControlStateHandler) {
+    constructor(ctx: Physics, bot: Bot, control?: ControlStateHandler) {
         this.supportFeature = makeSupportFeature(ctx.data);
         this.ctx = ctx;
         this.bot = bot;
@@ -142,7 +142,7 @@ export class PlayerState {
         this.attributes = (bot.entity as any).attributes;
         this.yaw = bot.entity.yaw;
         this.pitch = bot.entity.pitch;
-        this.controlState = control;
+        this.controlState = control ?? ControlStateHandler.DEFAULT();
 
         this.isUsingItem = isEntityUsingItem(bot.entity);
         this.isUsingMainHand = !whichHandIsEntityUsingBoolean(bot.entity) && this.isUsingItem;
@@ -244,7 +244,7 @@ export class PlayerState {
 
     public clone() {
         const tmp = new PlayerState(this.ctx, this.bot, this.controlState);
-        this.position = this.position.clone();
+        tmp.position = this.position.clone();
         tmp.velocity = this.velocity.clone();
         tmp.onGround = this.onGround;
         tmp.isInWater = this.isInWater;
@@ -285,7 +285,7 @@ export class PlayerState {
 
 
     public merge(other: PlayerState) {
-         this.position = other.position.clone();
+        this.position = other.position.clone();
         this.velocity = other.velocity.clone();
         this.onGround = other.onGround;
         this.isInWater = other.isInWater;

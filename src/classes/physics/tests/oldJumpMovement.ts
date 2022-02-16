@@ -4,11 +4,11 @@ import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
 import { MovementData } from "../../movement/movementData";
 import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
-import { Physics } from "../physics";
-import { getBetweenRectangle } from "../physicsUtils";
-import { PlayerState } from "../playerState";
-import { Simulations } from "../simulations";
-import { NewSimulations } from "../simulationsNew";
+import { Physics } from "../engines/physics";
+import { getBetweenRectangle } from "../extras/physicsUtils";
+import { PlayerState } from "../extras/playerState";
+import { Simulations } from "../sims/simulations";
+import { NewSimulations } from "../sims/simulationsNew";
 
 
 

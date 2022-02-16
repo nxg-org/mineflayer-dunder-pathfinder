@@ -23,15 +23,15 @@
         "dev": "npx ts-node-dev src/example.ts",
         "test": "npx ts-node src/example.ts",
         "start": "node --trace-warnings lib/example.js",
-
-        "physics": "npx ts-node src/classes/physics/tests/newTest.ts"
+        "physics": "npx ts-node src/classes/physics/tests/newNewTest.ts"
     },
     "dependencies": {
+        "@nxg-org/mineflayer-common-sense": "^1.0.2",
         "@nxg-org/mineflayer-tracker": "^1.1.0",
         "@nxg-org/mineflayer-util-plugin": "^1.4.0",
+        "@ungap/structured-clone": "^0.3.4",
         "denque": "^2.0.1",
-        "double-ended-queue": "^2.1.0-0",
-        "minecraft-data": "^2.97.0",
+        "minecraft-data": "^2.113.0",
         "mineflayer": "^4.0.0",
         "mineflayer-pathfinder": "^1.9.1",
         "prismarine-block": "^1.13.1",

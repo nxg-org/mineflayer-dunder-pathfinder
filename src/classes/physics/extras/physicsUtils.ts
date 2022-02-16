@@ -5,10 +5,10 @@ import { Block } from "prismarine-block";
 import { Entity } from "prismarine-entity";
 import { promisify } from "util";
 import { Vec3 } from "vec3";
-import features from "./lib/features.json";
+import features from "../lib/features.json";
 import { PlayerState } from "./playerState";
-import { NewSimulations } from "./simulationsNew";
-import { NewJumpMovement } from "./tests/newJumpMovement";
+import { NewSimulations } from "../sims/simulationsNew";
+import { NewJumpMovement } from "../tests/newJumpMovement";
 
 export function makeSupportFeature(mcData: md.IndexedData) {
     return (feature: string) => features.some(({ name, versions }) => name === feature && versions.includes(mcData.version.majorVersion!));
@@ -69,6 +69,13 @@ export function getStatusEffectNamesForVersion(supportFeature: ReturnType<typeof
             slowFallingEffectName: "SlowFalling",
             levitationEffectName: "Levitation",
         };
+    }
+}
+
+// lol. In case of expansion, yk.
+export function getEnchantmentNamesForVersion(supportFeature: ReturnType<typeof makeSupportFeature>) {
+    return {
+        depthStriderEnchantmentName: "depth_strider"
     }
 }
 

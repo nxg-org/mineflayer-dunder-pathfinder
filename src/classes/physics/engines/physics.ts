@@ -1,26 +1,71 @@
 import { Vec3 } from "vec3";
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import md, { Effects, Enchantments } from "minecraft-data";
-import * as math from "./lib/math";
-import * as attributes from "./lib/attributes";
-import * as features from "./lib/features.json";
+import * as math from "../lib/math";
+import * as attributes from "../lib/attributes";
+import * as features from "../lib/features.json";
 import { Effect, Entity } from "prismarine-entity";
 import { Bot, Enchantment } from "mineflayer";
-import { PlayerControls } from "../player/playerControls";
+import { PlayerControls } from "../../player/playerControls";
 import { Block } from "prismarine-block";
 import { NormalizedEnchant } from "prismarine-item";
-import { makeSupportFeature } from "./physicsUtils";
-import { PlayerState } from "./playerState";
-import { Physics } from "./physics";
-import { IPhysicsAdditions, PhysicsAdditions } from "./physicsAdditions";
+import { makeSupportFeature } from "../extras/physicsUtils";
+import { PlayerState } from "../states/playerState";
+import { PhysicsSettings } from "../extras/physicsSettings";
 
+export class Physics {
+    public data: md.IndexedData;
+    public world: any; /*prismarine-world */
+    public supportFeature: ReturnType<typeof makeSupportFeature>;
+    public blockSlipperiness: { [name: string]: number };
 
-export class PerStatePhysics extends Physics {
-    protected extras: PhysicsAdditions;
+    protected slimeBlockId: number;
+    protected soulsandId: number;
+    protected honeyblockId: number;
+    protected webId: number;
+    protected waterId: number;
+    protected lavaId: number;
+    protected ladderId: number;
+    protected vineId: number;
+    protected bubblecolumnId: number;
+    protected waterLike: Set<number>;
 
-    constructor(mcData: md.IndexedData, world: any /* prismarine-world */, extras?: IPhysicsAdditions) {
-        super(mcData, world);
-        this.extras = PhysicsAdditions.fromOptions(extras);
+    public settings: PhysicsSettings;
+
+    constructor(mcData: md.IndexedData, world: any /* prismarine-world */) {
+        this.data = mcData;
+        this.world = world;
+        this.supportFeature = makeSupportFeature(mcData);
+        this.settings = new PhysicsSettings(this);
+        const blocksByName = mcData.blocksByName;
+        this.blockSlipperiness = {};
+
+        this.slimeBlockId = blocksByName.slime_block ? blocksByName.slime_block.id : blocksByName.slime.id;
+        this.blockSlipperiness[this.slimeBlockId] = 0.8;
+        this.blockSlipperiness[blocksByName.ice.id] = 0.98;
+        this.blockSlipperiness[blocksByName.packed_ice.id] = 0.98;
+        if (blocksByName.frosted_ice) {
+            // 1.9+
+            this.blockSlipperiness[blocksByName.frosted_ice.id] = 0.98;
+        }
+        if (blocksByName.blue_ice) {
+            // 1.13+
+            this.blockSlipperiness[blocksByName.blue_ice.id] = 0.989;
+        }
+
+        this.soulsandId = blocksByName.soul_sand.id;
+        this.honeyblockId = blocksByName.honey_block ? blocksByName.honey_block.id : -1; // 1.15+
+        this.webId = blocksByName.cobweb ? blocksByName.cobweb.id : blocksByName.web.id;
+        this.waterId = blocksByName.water.id;
+        this.lavaId = blocksByName.lava.id;
+        this.ladderId = blocksByName.ladder.id;
+        this.vineId = blocksByName.vine.id;
+        this.waterLike = new Set();
+        if (blocksByName.seagrass) this.waterLike.add(blocksByName.seagrass.id); // 1.13+
+        if (blocksByName.tall_seagrass) this.waterLike.add(blocksByName.tall_seagrass.id); // 1.13+
+        if (blocksByName.kelp) this.waterLike.add(blocksByName.kelp.id); // 1.13+
+        this.bubblecolumnId = blocksByName.bubble_column ? blocksByName.bubble_column.id : -1; // 1.13+
+        if (blocksByName.bubble_column) this.waterLike.add(this.bubblecolumnId);
     }
 
     getPlayerBB(pos: { x: number; y: number; z: number }): AABB {
@@ -40,20 +85,13 @@ export class PerStatePhysics extends Physics {
         for (cursor.y = Math.floor(queryBB.minY) - 1; cursor.y <= Math.floor(queryBB.maxY); cursor.y++) {
             for (cursor.z = Math.floor(queryBB.minZ); cursor.z <= Math.floor(queryBB.maxZ); cursor.z++) {
                 for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
-                    if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
-                        const block = this.world.getBlock(cursor);
-                        if (block) {
-                            const blockPos = block.position;
-                            for (const shape of block.shapes) {
-                                const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-                                blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
-                                surroundingBBs.push(blockBB);
-                            }
-                        }
-                    } else if (this.extras.doCollisions && this.extras.customCollisionsOnly) {
-                        const block = this.extras.getBlock(cursor);
-                        if (block) {
-                            surroundingBBs.push(block);
+                    const block = this.world.getBlock(cursor);
+                    if (block) {
+                        const blockPos = block.position;
+                        for (const shape of block.shapes) {
+                            const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                            blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                            surroundingBBs.push(blockBB);
                         }
                     }
                 }
@@ -78,7 +116,7 @@ export class PerStatePhysics extends Physics {
         const vel = entity.velocity;
         const pos = entity.position;
 
-        if (entity.isInWeb && this.extras.doCollisions) {
+        if (entity.isInWeb) {
             dx *= 0.25;
             dy *= 0.05;
             dz *= 0.25;
@@ -94,11 +132,10 @@ export class PerStatePhysics extends Physics {
         let oldVelZ = dz;
         const oldOldVelZ = dz;
 
-        //stepping until collision occurs.
-        if (entity.controlState.sneak && entity.onGround && this.extras.doCollisions && !this.extras.ignoreVerticalCollisions) {
+        if (entity.controlState.sneak && entity.onGround) {
             const step = 0.05;
 
-            // In the 3 loops below, y offset should be -1, but that doesnt reproduce vanilla behavior.
+            // In the 3 loops bellow, y offset should be -1, but that doesnt reproduce vanilla behavior.
             for (; dx !== 0 && this.getSurroundingBBs(this.getPlayerBB(pos).offset(dx, 0, 0)).length === 0; oldVelX = dx) {
                 if (dx < step && dx >= -step) dx = 0;
                 else if (dx > 0) dx -= step;
@@ -146,13 +183,7 @@ export class PerStatePhysics extends Physics {
         playerBB.offset(0, 0, dz);
 
         // Step on block if height < stepHeight
-        if (
-            this.settings.stepHeight > 0 &&
-            (entity.onGround || (dy !== oldVelY && oldVelY < 0)) &&
-            (dx !== oldVelX || dz !== oldVelZ) &&
-            this.extras.doCollisions &&
-            !this.extras.ignoreVerticalCollisions
-        ) {
+        if (this.settings.stepHeight > 0 && (entity.onGround || (dy !== oldVelY && oldVelY < 0)) && (dx !== oldVelX || dz !== oldVelZ)) {
             const oldVelXCol = dx;
             const oldVelYCol = dy;
             const oldVelZCol = dz;
@@ -228,80 +259,63 @@ export class PerStatePhysics extends Physics {
         entity.isCollidedVertically = dy !== oldVelY;
         entity.onGround = entity.isCollidedVertically && oldVelY < 0;
 
-        if (
-            this.extras.doCollisions &&
-            !this.extras.ignoreHoriztonalCollisions &&
-            !this.extras.customCollisionsOnly &&
-            this.extras.doBlockInfoUpdates
-        ) {
-            const blockAtFeet = this.world.getBlock(pos.offset(0, -0.2, 0));
+        const blockAtFeet = this.world.getBlock(pos.offset(0, -0.2, 0));
 
-            if (dx !== oldVelX) vel.x = 0;
-            if (dz !== oldVelZ) vel.z = 0;
-            if (dy !== oldVelY) {
-                if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.controlState.sneak) {
-                    vel.y = -vel.y;
-                } else {
-                    vel.y = 0;
-                }
-            }
-        } else if (this.extras.doCollisions && this.extras.customCollisionsOnly && !this.extras.ignoreHoriztonalCollisions) {
-            const blockAtFeet = this.extras.getBlock(pos.offset(0, -0.2, 0));
-
-            if (dx !== oldVelX) vel.x = 0;
-            if (dz !== oldVelZ) vel.z = 0;
-            if (dy !== oldVelY && blockAtFeet) {
+        if (dx !== oldVelX) vel.x = 0;
+        if (dz !== oldVelZ) vel.z = 0;
+        if (dy !== oldVelY) {
+            if (blockAtFeet && blockAtFeet.type === this.slimeBlockId && !entity.controlState.sneak) {
+                vel.y = -vel.y;
+            } else {
                 vel.y = 0;
             }
         }
 
-        if (this.extras.doCollisions && this.extras.doBlockInfoUpdates) {
-            // Finally, apply block collisions (web, soulsand...)
-            playerBB.contract(0.001, 0.001, 0.001);
-            const cursor = new Vec3(0, 0, 0);
-            for (cursor.y = Math.floor(playerBB.minY); cursor.y <= Math.floor(playerBB.maxY); cursor.y++) {
-                for (cursor.z = Math.floor(playerBB.minZ); cursor.z <= Math.floor(playerBB.maxZ); cursor.z++) {
-                    for (cursor.x = Math.floor(playerBB.minX); cursor.x <= Math.floor(playerBB.maxX); cursor.x++) {
-                        const block = this.world.getBlock(cursor);
-                        if (block) {
-                            if (this.supportFeature("velocityBlocksOnCollision")) {
-                                if (block.type === this.soulsandId) {
-                                    vel.x *= this.settings.soulsandSpeed;
-                                    vel.z *= this.settings.soulsandSpeed;
-                                } else if (block.type === this.honeyblockId) {
-                                    vel.x *= this.settings.honeyblockSpeed;
-                                    vel.z *= this.settings.honeyblockSpeed;
-                                }
+        // Finally, apply block collisions (web, soulsand...)
+        playerBB.contract(0.001, 0.001, 0.001);
+        const cursor = new Vec3(0, 0, 0);
+        for (cursor.y = Math.floor(playerBB.minY); cursor.y <= Math.floor(playerBB.maxY); cursor.y++) {
+            for (cursor.z = Math.floor(playerBB.minZ); cursor.z <= Math.floor(playerBB.maxZ); cursor.z++) {
+                for (cursor.x = Math.floor(playerBB.minX); cursor.x <= Math.floor(playerBB.maxX); cursor.x++) {
+                    const block = this.world.getBlock(cursor);
+                    if (block) {
+                        if (this.supportFeature("velocityBlocksOnCollision")) {
+                            if (block.type === this.soulsandId) {
+                                vel.x *= this.settings.soulsandSpeed;
+                                vel.z *= this.settings.soulsandSpeed;
+                            } else if (block.type === this.honeyblockId) {
+                                vel.x *= this.settings.honeyblockSpeed;
+                                vel.z *= this.settings.honeyblockSpeed;
                             }
-                            if (block.type === this.webId) {
-                                entity.isInWeb = true;
-                            } else if (block.type === this.bubblecolumnId) {
-                                const down = !block.metadata;
-                                const aboveBlock = this.world.getBlock(cursor.offset(0, 1, 0));
-                                const bubbleDrag =
-                                    aboveBlock && aboveBlock.type === 0 /* air */
-                                        ? this.settings.bubbleColumnSurfaceDrag
-                                        : this.settings.bubbleColumnDrag;
-                                if (down) {
-                                    vel.y = Math.max(bubbleDrag.maxDown, vel.y - bubbleDrag.down);
-                                } else {
-                                    vel.y = Math.min(bubbleDrag.maxUp, vel.y + bubbleDrag.up);
-                                }
+                        }
+                        if (block.type === this.webId) {
+                            entity.isInWeb = true;
+                        } else if (block.type === this.bubblecolumnId) {
+                            const down = !block.metadata;
+                            const aboveBlock = this.world.getBlock(cursor.offset(0, 1, 0));
+                            const bubbleDrag =
+                                aboveBlock && aboveBlock.type === 0 /* air */
+                                    ? this.settings.bubbleColumnSurfaceDrag
+                                    : this.settings.bubbleColumnDrag;
+                            if (down) {
+                                vel.y = Math.max(bubbleDrag.maxDown, vel.y - bubbleDrag.down);
+                            } else {
+                                vel.y = Math.min(bubbleDrag.maxUp, vel.y + bubbleDrag.up);
                             }
                         }
                     }
                 }
             }
-            if (this.supportFeature("velocityBlocksOnTop")) {
-                const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
-                if (blockBelow) {
-                    if (blockBelow.type === this.soulsandId) {
-                        vel.x *= this.settings.soulsandSpeed;
-                        vel.z *= this.settings.soulsandSpeed;
-                    } else if (blockBelow.type === this.honeyblockId) {
-                        vel.x *= this.settings.honeyblockSpeed;
-                        vel.z *= this.settings.honeyblockSpeed;
-                    }
+        }
+        if (this.supportFeature("velocityBlocksOnTop")) {
+            const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
+            if (blockBelow) {
+                if (blockBelow.type === this.soulsandId) {
+                    vel.x *= this.settings.soulsandSpeed;
+                    vel.z *= this.settings.soulsandSpeed;
+                } else if (blockBelow.type === this.honeyblockId) {
+                    vel.x *= this.settings.honeyblockSpeed;
+                    vel.z *= this.settings.honeyblockSpeed;
                 }
             }
         }
@@ -387,8 +401,6 @@ export class PerStatePhysics extends Physics {
     }
 
     isMaterialInBB(queryBB: AABB, type: number) {
-        if (!this.extras.doBlockInfoUpdates || this.extras.customCollisionsOnly) return false; //custom collisions has no block type knowledge.
-
         const cursor = new Vec3(0, 0, 0);
         for (cursor.y = Math.floor(queryBB.minY); cursor.y <= Math.floor(queryBB.maxY); cursor.y++) {
             for (cursor.z = Math.floor(queryBB.minZ); cursor.z <= Math.floor(queryBB.maxZ); cursor.z++) {
@@ -402,7 +414,6 @@ export class PerStatePhysics extends Physics {
     }
 
     getWaterInBB(bb: AABB) {
-        if (!this.extras.doBlockInfoUpdates || this.extras.customCollisionsOnly) return []; //see line 451 comment.
         const waterBlocks = [];
         const cursor = new Vec3(0, 0, 0);
         for (cursor.y = Math.floor(bb.minY); cursor.y <= Math.floor(bb.maxY); cursor.y++) {
@@ -433,10 +444,8 @@ export class PerStatePhysics extends Physics {
     }
 
     getFlow(block: Block) {
-        const flow = new Vec3(0, 0, 0);
-        if (!this.extras.doBlockInfoUpdates || this.extras.customCollisionsOnly) return flow; // see line 451 comment.
         const curlevel = this.getRenderedDepth(block);
-
+        const flow = new Vec3(0, 0, 0);
         for (const [dx, dz] of [
             [0, 1],
             [-1, 0],
@@ -479,9 +488,7 @@ export class PerStatePhysics extends Physics {
         return flow.normalize();
     }
 
-    //edit velocity vector internally, not a return value.
     isInWaterApplyCurrent(bb: AABB, vel: { x: number; y: number; z: number }) {
-        if (!this.extras.doBlockInfoUpdates || this.extras.customCollisionsOnly) return false; //see line 451 comment.
         const acceleration = new Vec3(0, 0, 0);
         const waterBlocks = this.getWaterInBB(bb);
         const isInWater = waterBlocks.length > 0;
@@ -499,6 +506,7 @@ export class PerStatePhysics extends Physics {
         return isInWater;
     }
 
+
     moveEntityWithHeading(entity: PlayerState, strafe: number, forward: number) {
         const vel = entity.velocity;
         const pos = entity.position;
@@ -509,15 +517,7 @@ export class PerStatePhysics extends Physics {
             // Normal movement
             let acceleration = this.settings.airborneAcceleration;
             let inertia = this.settings.airborneInertia;
-
-            let blockUnder;
-            if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
-                blockUnder = this.world.getBlock(pos.offset(0, -1, 0));
-            } else if (this.extras.doCollisions) {
-                blockUnder = this.extras.getBlock(pos.offset(0, -1, 0));
-            } else {
-                blockUnder = false;
-            }
+            const blockUnder = this.world.getBlock(pos.offset(0, -1, 0));
             if (entity.onGround && blockUnder) {
                 let playerSpeedAttribute;
                 if (entity.attributes && entity.attributes[this.settings.movementSpeedAttribute]) {
@@ -548,23 +548,16 @@ export class PerStatePhysics extends Physics {
 
             this.applyHeading(entity, strafe, forward, acceleration);
 
-            if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
-                if (this.isOnLadder(pos)) {
-                    vel.x = math.clamp(-this.settings.ladderMaxSpeed, vel.x, this.settings.ladderMaxSpeed);
-                    vel.z = math.clamp(-this.settings.ladderMaxSpeed, vel.z, this.settings.ladderMaxSpeed);
-                    vel.y = Math.max(vel.y, entity.controlState.sneak ? 0 : -this.settings.ladderMaxSpeed);
-                }
+            if (this.isOnLadder(pos)) {
+                vel.x = math.clamp(-this.settings.ladderMaxSpeed, vel.x, this.settings.ladderMaxSpeed);
+                vel.z = math.clamp(-this.settings.ladderMaxSpeed, vel.z, this.settings.ladderMaxSpeed);
+                vel.y = Math.max(vel.y, entity.controlState.sneak ? 0 : -this.settings.ladderMaxSpeed);
             }
 
             this.moveEntity(entity, vel.x, vel.y, vel.z);
 
-            if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
-                if (
-                    this.isOnLadder(pos) &&
-                    (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.controlState.jump))
-                ) {
-                    vel.y = this.settings.ladderClimbSpeed; // climb ladder
-                }
+            if (this.isOnLadder(pos) && (entity.isCollidedHorizontally || (this.supportFeature("climbUsingJump") && entity.controlState.jump))) {
+                vel.y = this.settings.ladderClimbSpeed; // climb ladder
             }
 
             // Apply friction and gravity
@@ -628,20 +621,10 @@ export class PerStatePhysics extends Physics {
         if (entity.controlState.jump || entity.jumpQueued) {
             if (entity.jumpTicks > 0) entity.jumpTicks--;
             if (entity.isInWater || entity.isInLava) {
-                vel.y += 0.04;
+                vel.y += 0.04; //0.03999999910593033
             } else if (entity.onGround && entity.jumpTicks === 0) {
-                let blockUnder;
-                if (this.extras.doCollisions && !this.extras.customCollisionsOnly) {
-                    blockUnder = this.world.getBlock(pos.offset(0, -1, 0));
-                    vel.y =
-                        Math.fround(0.42) * (blockUnder && blockUnder.type === this.honeyblockId ? this.settings.honeyblockJumpSpeed : 1);
-                } else if (this.extras.doCollisions) {
-                    blockUnder = this.extras.getBlock(pos.offset(0, -1, 0));
-                    if (blockUnder) vel.y = Math.fround(0.42);
-                } else {
-                    blockUnder = false;
-                }
-                // const blockUnder = this.world.getBlock(entity.pos.floored().offset(0, -0.5, 0));
+                const blockBelow = this.world.getBlock(entity.position.floored().offset(0, -0.5, 0));
+                vel.y = Math.fround(0.42) * (blockBelow && blockBelow.type === this.honeyblockId ? this.settings.honeyblockJumpSpeed : 1);
                 if (entity.jumpBoost > 0) {
                     vel.y += 0.1 * entity.jumpBoost;
                 }
@@ -657,21 +640,19 @@ export class PerStatePhysics extends Physics {
         }
         entity.jumpQueued = false;
 
-        let strafe = Number(entity.controlState.left) - Number(entity.controlState.right) * 0.98;
-        let forward = Number(entity.controlState.forward) - Number(entity.controlState.back) * 0.98;
+        let strafe = ((entity.controlState.right as unknown as number) - (entity.controlState.left as unknown as number)) * 0.98;
+        let forward = ((entity.controlState.forward as unknown as number) - (entity.controlState.back as unknown as number)) * 0.98;
 
         if (entity.controlState.sneak) {
-            // console.log("sneakin")
-            // strafe *= this.physics.sneakSpeed;
-            // forward *= this.physics.sneakSpeed;
+            strafe *= this.settings.sneakSpeed;
+            forward *= this.settings.sneakSpeed;
         }
 
         if (entity.isUsingItem) {
-            console.log("before:", strafe, forward);
             strafe *= this.settings.usingItemSpeed;
             forward *= this.settings.usingItemSpeed;
-            console.log("after:", strafe, forward);
         }
+
 
         this.moveEntityWithHeading(entity, strafe, forward);
 

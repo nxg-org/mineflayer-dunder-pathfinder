@@ -1,4 +1,4 @@
-import { FakeVec3, MAX_COST, MovementEnum } from "../utils/constants";
+import { FakeVec3, MAX_COST, MovementEnum } from "../../utils/constants";
 import { BaseGoal } from "../goals";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 

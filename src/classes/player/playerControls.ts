@@ -1,15 +1,93 @@
-import { Bot, ControlState } from "mineflayer";
+import { Bot, ControlState, ControlStateStatus } from "mineflayer";
 import { Vec3 } from "vec3";
-import { IContext } from "../path/PathContext";
+import { IContext } from "../path/baritone/PathContext";
 import { MathUtils } from "@nxg-org/mineflayer-util-plugin";
-import { PlayerState } from "../physics/playerState";
+import { PlayerState } from "../physics/states/playerState";
+import { MovementTarget } from "../movement/movementData";
 
-export class PlayerControls {
-    public movements: { [key in ControlState]: boolean };
-    public rotations: { yaw: number; pitch: number };
-    public leftClick: boolean;
-    public rightClick: boolean;
+export class ControlStateHandler implements ControlStateStatus {
+    constructor(
+        public forward: boolean,
+        public back: boolean,
+        public left: boolean,
+        public right: boolean,
+        public jump: boolean,
+        public sprint: boolean,
+        public sneak: boolean
+    ) {}
 
+    public static DEFAULT(): ControlStateHandler {
+        return new ControlStateHandler(false, false, false, false, false, false, false);
+    }
+
+    public static COPY_BOT(bot: Bot) {
+        return new ControlStateHandler(
+            bot.controlState.forward,
+            bot.controlState.back,
+            bot.controlState.left,
+            bot.controlState.right,
+            bot.controlState.jump,
+            bot.controlState.sprint,
+            bot.controlState.sneak
+        );
+    }
+
+    public static COPY_STATE(state: PlayerState) {
+        return new ControlStateHandler(
+            state.controlState.forward,
+            state.controlState.back,
+            state.controlState.left,
+            state.controlState.right,
+            state.controlState.jump,
+            state.controlState.sprint,
+            state.controlState.sneak
+        );
+    }
+
+    public set(state: ControlState, wanted: boolean, tick: number) {
+        console.trace("set jump:", wanted, tick);
+        this[state] = wanted;
+    }
+
+    public get(state: ControlState): boolean {
+        return this[state];
+    }
+
+    public clear(state: ControlState) {
+        this[state] = false;
+    }
+
+    public clone(): ControlStateHandler {
+        return new ControlStateHandler(this.forward, this.back, this.left, this.right, this.jump, this.sprint, this.sneak);
+    }
+
+    public equals(other: ControlStateHandler) {
+        return this.forward == other.forward &&
+            this.back == other.back &&
+            this.left == other.left &&
+            this.right == other.right &&
+            this.jump == other.jump &&
+            this.sprint == other.sprint &&
+            this.sneak == other.sneak;
+    }
+
+    public applyControls(bot: Bot): void {
+        for (const move of this) {
+            bot.setControlState(move[0], move[1]);
+        }
+    }
+
+    *[Symbol.iterator](): Generator<[state: ControlState, wanted: boolean], void, unknown> {
+        yield ["forward", this.forward];
+        yield ["back", this.back];
+        yield ["left", this.left];
+        yield ["right", this.right];
+        yield ["jump", this.jump];
+        yield ["sprint", this.sprint];
+        yield ["sneak", this.sneak];
+    }
+}
+export class PlayerControls extends ControlStateHandler {
     constructor(
         forward: boolean,
         back: boolean,
@@ -18,24 +96,13 @@ export class PlayerControls {
         jump: boolean,
         sprint: boolean,
         sneak: boolean,
-        leftClick: boolean,
-        rightClick: boolean,
-        yaw: number,
-        pitch: number
+        public leftClick: boolean,
+        public rightClick: boolean,
+        public yaw: number,
+        public pitch: number,
+        public force: boolean = false
     ) {
-        this.movements = {
-            forward,
-            back,
-            left,
-            right,
-            jump,
-            sprint,
-            sneak,
-        };
-        this.rotations = {
-            yaw,
-            pitch,
-        };
+        super(forward, back, left, right, jump, sprint, sneak);
         this.leftClick = leftClick;
         this.rightClick = rightClick;
     }
@@ -44,53 +111,100 @@ export class PlayerControls {
         return new PlayerControls(false, false, false, false, false, false, false, false, false, NaN, NaN);
     }
 
-    public static LOOK(yaw: number, pitch: number) {
-        return new PlayerControls(false, false, false, false, false, false, false, false, false, yaw, pitch);
+    public static LOOK(yaw: number, pitch: number, force: boolean) {
+        return new PlayerControls(false, false, false, false, false, false, false, false, false, yaw, pitch, force);
     }
 
-    public static LOOKAT(pos: Vec3) {
+    public static LOOKAT(pos: Vec3, force: boolean) {
         const info = MathUtils.dirToYawAndPitch(pos);
-        return new PlayerControls(false, false, false, false, false, false, false, false, false, info.yaw, info.pitch);
+        return new PlayerControls(false, false, false, false, false, false, false, false, false, info.yaw, info.pitch, force);
     }
 
     public static COPY_BOT(bot: Bot) {
-        return new PlayerControls(bot.controlState.forward, bot.controlState.back, bot.controlState.left, bot.controlState.right, bot.controlState.jump, bot.controlState.sprint, bot.controlState.sneak, bot.util.entity.isMainHandActive(), bot.util.entity.isOffHandActive(), bot.entity.yaw, bot.entity.pitch)
+        return new PlayerControls(
+            bot.controlState.forward,
+            bot.controlState.back,
+            bot.controlState.left,
+            bot.controlState.right,
+            bot.controlState.jump,
+            bot.controlState.sprint,
+            bot.controlState.sneak,
+            bot.util.entity.isMainHandActive(),
+            bot.util.entity.isOffHandActive(),
+            bot.entity.yaw,
+            bot.entity.pitch,
+            false
+        );
     }
 
     public static COPY_STATE(state: PlayerState) {
-        return new PlayerControls(state.control.movements.forward, state.control.movements.back, state.control.movements.left, state.control.movements.right, state.control.movements.jump, state.control.movements.sprint, state.control.movements.sneak, state.isUsingMainHand, state.isUsingOffHand, state.control.rotations.yaw, state.control.rotations.pitch)
-    }
-
-    public set(state: ControlState, wanted: boolean) {
-        this.movements[state] = wanted;
-    }
-
-    public get(state: ControlState): boolean {
-        return this.movements[state];
-    }
-
-    public clear(state: ControlState) {
-        this.movements[state] = false;
+        return new PlayerControls(
+            state.controlState.forward,
+            state.controlState.back,
+            state.controlState.left,
+            state.controlState.right,
+            state.controlState.jump,
+            state.controlState.sprint,
+            state.controlState.sneak,
+            state.isUsingMainHand,
+            state.isUsingOffHand,
+            state.yaw,
+            state.pitch,
+            false
+        );
     }
 
     public clone(): PlayerControls {
-        return new PlayerControls(this.movements.forward, this.movements.back, this.movements.left, this.movements.right, this.movements.jump, this.movements.sprint, this.movements.sneak, this.leftClick, this.rightClick, this.rotations.yaw, this.rotations.pitch)
+        return new PlayerControls(
+            this.forward,
+            this.back,
+            this.left,
+            this.right,
+            this.jump,
+            this.sprint,
+            this.sneak,
+            this.leftClick,
+            this.rightClick,
+            this.yaw,
+            this.pitch,
+            this.force
+        );
     }
 
     public setRot(dir: Vec3) {
         const tmp = MathUtils.dirToYawAndPitch(dir);
-        this.rotations.yaw = tmp.yaw;
-        this.rotations.pitch = tmp.pitch;
+        this.yaw = tmp.yaw;
+        this.pitch = tmp.pitch;
     }
 
     public setRotRaw(yaw: number, pitch: number) {
-        this.rotations.yaw = yaw;
-        this.rotations.pitch = pitch;
+        this.yaw = yaw;
+        this.pitch = pitch;
+    }
+
+    public *movements() {
+        yield this.forward;
+        yield this.back;
+        yield this.left;
+        yield this.right;
+        yield this.jump;
+        yield this.sprint;
+        yield this.sneak;
+    }
+
+    public *linkedMovements(): Generator<[state: ControlState, wanted: boolean], void, unknown> {
+        yield ["forward", this.forward];
+        yield ["back", this.back];
+        yield ["left", this.left];
+        yield ["right", this.right];
+        yield ["jump", this.jump];
+        yield ["sprint", this.sprint];
+        yield ["sneak", this.sneak];
     }
 
     public apply(ctx: IContext, forceRotations: boolean = false) {
-        for (const move in this.movements) {
-            ctx.bot.setControlState(move as ControlState, this.movements[move as ControlState]);
+        for (const move of this.linkedMovements()) {
+            ctx.bot.setControlState(move[0], move[1]);
         }
 
         // I feel like this is stupid, so I may not bother. lol
@@ -101,7 +215,7 @@ export class PlayerControls {
             } else {
                 const entity = ctx.bot.util.raytrace.entityAtCursor(ctx.entityReach);
                 if (entity) {
-                    ctx.bot.attack(entity as any); // TODO: update typings for util-plugin to 2.0.0+;
+                    ctx.bot.attack(entity); // TODO: update typings for util-plugin to 2.0.0+;
                 }
             }
         }
@@ -111,9 +225,9 @@ export class PlayerControls {
                 ctx.bot.activateItem(true);
             }
         }
-        if (!isNaN(this.rotations.pitch) && !isNaN(this.rotations.yaw)) {
-            if (this.rotations.pitch !== ctx.bot.entity.pitch || this.rotations.yaw !== ctx.bot.entity.yaw) {
-                ctx.bot.look(this.rotations.yaw, this.rotations.pitch, forceRotations);
+        if (!isNaN(this.pitch) && !isNaN(this.yaw)) {
+            if (this.pitch !== ctx.bot.entity.pitch || this.yaw !== ctx.bot.entity.yaw) {
+                ctx.bot.look(this.yaw, this.pitch, forceRotations);
             }
         }
     }
@@ -138,9 +252,10 @@ export class AdvancedPlayerControls extends PlayerControls {
         leftClick: boolean,
         rightClick: boolean,
         yaw: number,
-        pitch: number
+        pitch: number,
+        force: boolean = false
     ) {
-        super(forward, back, left, right, jump, sprint, sneak, leftClick, rightClick, yaw, pitch);
+        super(forward, back, left, right, jump, sprint, sneak, leftClick, rightClick, yaw, pitch, force);
 
         this.isGrounded = true;
         this.faceBackwards = 0; //4
@@ -155,7 +270,7 @@ export class AdvancedPlayerControls extends PlayerControls {
     }
 
     public static LOOK(yaw: number, pitch: number) {
-        return new PlayerControls(false, false, false, false, false, false, false, false, false, yaw, pitch);
+        return new AdvancedPlayerControls(false, false, false, false, false, false, false, false, false, NaN, NaN);
     }
 
     public static LOOKAT(pos: Vec3) {

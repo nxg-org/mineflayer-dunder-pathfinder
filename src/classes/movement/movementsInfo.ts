@@ -14,10 +14,10 @@ import {
     MAX_COST,
     scaffoldBlocks,
     scaffoldBlocksAsSet,
-} from "../utils/constants";
+} from "../../utils/constants";
 import { PathNode } from "../nodes/node";
 import { BlockInteraction, IBlockType, Movement } from "..";
-import { cantGetBlockError } from "../utils/util";
+import { cantGetBlockError } from "../../utils/util";
 import { CostInfo } from "../player/costCalculator";
 import { Block } from "prismarine-block";
 import { Item } from "prismarine-item";

@@ -1,8 +1,8 @@
 import { BetterBlockPos } from "../../blocks/betterBlockPos";
 import { PathNode } from "../../nodes/node";
 import { CostInfo } from "../../player/costCalculator";
-import { PathContext } from "../../path/PathContext";
-import { Direction, MAX_COST, MovementEnum } from "../../utils/constants";
+import { PathContext } from "../../path/baritone/PathContext";
+import { Direction, MAX_COST, MovementEnum } from "../../../utils/constants";
 import { BaseMovement, Movement } from "../movement";
 import { MovementInfo } from "../movementsInfo";
 import { MovementData } from "../movementData";
@@ -42,7 +42,7 @@ export class MovementCardinal extends BaseMovement {
         while (!this.ctx.bbpAtFeet().equals(this.dest)) {
          
           
-            data.setInputs
+            data.setInputsMultipleTicks
             // data.targetsByTicks[this.ctx.currentTick + i].yaw = Math.atan2(-(this.dest.x - this.ctx.state.position.x), -(this.dest.z - this.ctx.state.position.z));
             const cardBLiquid = this.ctx.blockInfo.isLiquid(bl0);
             if (!this.ctx.blockInfo.canWalkOnBlock(bl1) && !cardBLiquid) {

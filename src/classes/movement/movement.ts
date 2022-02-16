@@ -1,9 +1,9 @@
 import { Vec3 } from "vec3";
-import { MAX_COST, MovementEnum } from "../utils/constants";
+import { MAX_COST, MovementEnum } from "../../utils/constants";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { BlockInteraction, IBlockType } from "../blocks/blockInteraction";
 import { PathNode } from "../nodes/node";
-import { PathContext } from "../path/PathContext";
+import { PathContext } from "../path/baritone/PathContext";
 import { MovementData } from "./movementData";
 import { CostInfo } from "../player/costCalculator";
 import { MovementInfo } from "./movementsInfo";
@@ -61,8 +61,8 @@ export abstract class BaseMovement {
     public async applyState() {
         // await this.ctx.bot.look(this.state.target.yaw, this.state.target.pitch, this.state.target.forceRotations);
         for (let ind = this.state.minInputTime; ind <= this.state.maxInputTime; ind++) {
-            if (this.state.inputStatesAndTimes[ind]) {
-                this.state.inputStatesAndTimes[ind].apply(this.ctx);
+            if (this.state.inputsByTicks[ind]) {
+                this.state.inputsByTicks[ind].apply(this.ctx);
             }
             const tmp = this.state.targetsByTicks[ind];
             if (tmp) {

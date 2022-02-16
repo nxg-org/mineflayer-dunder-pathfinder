@@ -1,8 +1,8 @@
 import { BaseGoal } from "../goals";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { PathNode } from "../nodes/node";
-import { PathCalculationResult, PathType } from "../path/PathResult";
-import { IPath } from "../path/PathTypes/IPath";
+import { PathCalculationResult, PathType } from "../path/baritone/PathResult";
+import { IPath } from "../path/baritone/pathTypes/IPath";
 
 /**
  * Any pathfinding algorithm that keeps track of nodes recursively by their cost (e.g. A*, dijkstra)

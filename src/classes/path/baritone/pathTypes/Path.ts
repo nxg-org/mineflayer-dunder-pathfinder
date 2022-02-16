@@ -1,7 +1,7 @@
-import { BetterBlockPos } from "../../blocks/betterBlockPos";
-import { BaseGoal } from "../../goals";
-import { BaseMovement } from "../../movement/movement";
-import { PathNode } from "../../nodes/node";
+import { BetterBlockPos } from "../../../blocks/betterBlockPos";
+import { BaseGoal } from "../../../goals";
+import { BaseMovement } from "../../../movement/movement";
+import { PathNode } from "../../../nodes/node";
 import { PathBase } from "./PathBase";
 import Denque from "denque"
 import { IPath } from "./IPath";

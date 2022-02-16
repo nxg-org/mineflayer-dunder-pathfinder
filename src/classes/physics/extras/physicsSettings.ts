@@ -1,4 +1,4 @@
-import { Physics } from "./physics";
+import { Physics } from "../engines/physics";
 
 type BubbleColumnInfo = {
     down: number;
@@ -67,5 +67,12 @@ export class PhysicsSettings {
             this.waterGravity = 0.005;
             this.lavaGravity = 0.02;
         }
+    }
+
+
+    // May move this later.
+
+    public getHeight(obj: {}) {
+        this.bubbleColumnDrag
     }
 }

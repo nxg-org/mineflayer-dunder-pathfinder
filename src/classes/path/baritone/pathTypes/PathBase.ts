@@ -1,4 +1,4 @@
-import { BaseGoal } from "../../goals";
+import { BaseGoal } from "../../../goals";
 import { CutoffPath } from "./CutOffPath";
 import { IPath } from "./IPath";
 

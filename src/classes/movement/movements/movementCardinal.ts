@@ -1,7 +1,7 @@
 import { BetterBlockPos } from "../../blocks/betterBlockPos";
 import { PathNode } from "../../nodes/node";
 import { CostInfo } from "../../player/costCalculator";
-import { PathContext } from "../../path/PathContext";
+import { PathContext } from "../../path/baritone/PathContext";
 import { Direction, MAX_COST, MovementEnum } from "../../../utils/constants";
 import { BaseMovement, Movement } from "../movement";
 import { MovementInfo } from "../movementsInfo";

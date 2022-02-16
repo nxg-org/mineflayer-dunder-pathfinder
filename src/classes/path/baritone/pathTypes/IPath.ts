@@ -1,7 +1,6 @@
-import { BetterBlockPos } from "../../blocks/betterBlockPos";
-import { BaseGoal } from "../../goals";
-import { BaseMovement } from "../../movement/movement";
-import { hash } from "../../physics/physicsUtils";
+import { BetterBlockPos } from "../../../blocks/betterBlockPos";
+import { BaseGoal } from "../../../goals";
+import { BaseMovement } from "../../../movement/movement";
 
 export abstract class IPath {
 

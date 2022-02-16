@@ -4,7 +4,7 @@ import { MathUtils } from "@nxg-org/mineflayer-util-plugin";
 import { Bot, ControlState } from "mineflayer";
 import { ControlStateHandler, PlayerControls } from "../player/playerControls";
 import { MAX_COST } from "../../utils/constants";
-import { PlayerState } from "../physics/playerState";
+import { PlayerState } from "../physics/states/playerState";
 import v8 from "v8";
 
 const structuredClone = (obj: any) => {

@@ -3,7 +3,7 @@ import { MAX_COST, MovementEnum } from "../../utils/constants";
 import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { BlockInteraction, IBlockType } from "../blocks/blockInteraction";
 import { PathNode } from "../nodes/node";
-import { PathContext } from "../path/PathContext";
+import { PathContext } from "../path/baritone/PathContext";
 import { MovementData } from "./movementData";
 import { CostInfo } from "../player/costCalculator";
 import { MovementInfo } from "./movementsInfo";

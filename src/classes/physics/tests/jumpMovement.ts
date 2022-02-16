@@ -6,33 +6,34 @@ import { MovementData } from "../../movement/movementData";
 import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
 import { Physics } from "../engines/physics";
 import { getBetweenRectangle } from "../extras/physicsUtils";
-import { PlayerState } from "../extras/playerState";
-import { NewSims } from "../sims/nextSim";
-import { Simulations } from "../sims/simulations";
-import { SimulationData } from "../sims/simulationsNew";
+import { PlayerState } from "../states/playerState";
+import { NewSims, SimulationData } from "../sims/nextSim";
+
 
 export type JumpNames = "immediate" | "noWindup" | "windup";
-export type fuk = { success: boolean; data: SimulationData; type?: JumpNames } | { success: false };
-
-export type JumpInfo = { checked: false } | { checked: true; result: fuk };
-export type JumpData = { [name in JumpNames]: JumpInfo };
+export type SuccessfulJumpData = { success: boolean; data: SimulationData; type?: JumpNames }
+export type FailedJumpData = { success: false };
+export type JumpData =  SuccessfulJumpData | FailedJumpData
+export type CheckedJumpData = { checked: false } | { checked: true; result: JumpData };
+export type AllJumpData = { [name in JumpNames]: CheckedJumpData };
 
 export class NewJump {
-    private state: PlayerState;
+    public static maxJumpTicks: number = 30;
+    public readonly state: PlayerState;
     public readonly sim: NewSims;
     public readonly srcAABBs: AABB[];
     public readonly goalBlock: Vec3;
     public readonly closeToSrc: Vec3;
     public readonly closeToDest: Vec3;
 
-    public jumpData: JumpData;
+    public jumpData: AllJumpData;
 
     constructor(physics: Physics, state: PlayerState, goalBlock: Vec3) {
         this.state = state;
         this.sim = new NewSims(physics, state);
         this.goalBlock = goalBlock;
-        this.srcAABBs = this.sim.orgState.getUnderlyingBlockAABBs();
-        const dest = AABB.fromBlock(this.goalBlock.clone());
+        this.srcAABBs = this.sim.orgState.getUnderlyingBlockBBs();
+        const dest = AABB.fromBlock(this.goalBlock);
         this.jumpData = {
             immediate: { checked: false },
             noWindup: { checked: false },
@@ -81,7 +82,7 @@ export class NewJump {
             .sort((a, b) => dest.distanceToVec(b[0]!) - dest.distanceToVec(a[0]!))[0];
     }
 
-    public async checkValidity(shift: boolean = true): Promise<fuk> {
+    public async checkValidity(shift: boolean = true): Promise<JumpData> {
         const tmp = await this.canMakeImmediateJump(shift);
         if (tmp.success) return tmp;
         else this.sim.revert();
@@ -94,8 +95,8 @@ export class NewJump {
         return { success: false };
     }
 
-    async canMakeImmediateJump(shift: boolean = false): Promise<fuk> {
-        const data = await this.sim.simulateSmartAim(this.closeToDest, true, true, 0, 30); // re-assignment unnecessary since changing org. state.\
+    async canMakeImmediateJump(shift: boolean = false): Promise<JumpData> {
+        const data = await this.sim.simulateSmartAim(this.closeToDest, true, true, 0, NewJump.maxJumpTicks); // re-assignment unnecessary since changing org. state.\
         const success = NewSims.getReached(this.closeToDest)(this.sim.state);
         const result = { success, type: "immediate" as JumpNames, data };
         this.jumpData.immediate = { checked: true, result };
@@ -103,9 +104,9 @@ export class NewJump {
         return result;
     }
 
-    async noWindup(shift: boolean = false): Promise<fuk> {
+    async noWindup(shift: boolean = false): Promise<JumpData> {
         const dest = this.closeToDest.clone();
-        const data = await this.sim.simulateJumpFromEdgeOfBlock(this.srcAABBs, dest, this.goalBlock, true, 30); // re-assignment unnecessary since changing org. state.
+        const data = await this.sim.simulateJumpFromEdgeOfBlock(this.srcAABBs, dest, this.goalBlock, true, NewJump.maxJumpTicks); // re-assignment unnecessary since changing org. state.
         const success = NewSims.getReached(dest)(this.sim.state);
         const result = { success, type: "noWindup" as JumpNames, data };
         this.jumpData.noWindup = { checked: true, result };
@@ -113,11 +114,11 @@ export class NewJump {
         return result;
     }
 
-    async jumpTechnicallyPossible(shift: boolean = false): Promise<fuk> {
+    async jumpTechnicallyPossible(shift: boolean = false): Promise<JumpData> {
         const dest = this.closeToDest.clone();
         NewSims.getControllerStraightAim(this.closeToDest)(this.sim.state);
         await this.sim.simulateBackUpBeforeJump(this.closeToSrc, true, true, 20);
-        const data = await this.sim.simulateJumpFromEdgeOfBlock(this.srcAABBs, dest, this.goalBlock, true, 30);
+        const data = await this.sim.simulateJumpFromEdgeOfBlock(this.srcAABBs, dest, this.goalBlock, true, NewJump.maxJumpTicks);
         const success = NewSims.getReached(dest)(this.sim.state);
         const result = { success, type: "windup" as JumpNames, data };
         this.jumpData.windup = { checked: true, result };

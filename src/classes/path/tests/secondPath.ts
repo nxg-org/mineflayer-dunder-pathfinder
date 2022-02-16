@@ -3,24 +3,21 @@ import { Block } from "prismarine-block";
 import { promisify } from "util";
 import { Vec3 } from "vec3";
 import { MovementData } from "../../movement/movementData";
-import { Physics } from "../engines/physics";
-import { PlayerState } from "../playerState";
-import { fuk, NewJump } from "../tests/newNewJump";
-import { NewSims } from "./nextSim";
-import { SimulationData } from "./simulationsNew";
+import { Physics } from "../../physics/engines/physics";
+import { PlayerState } from "../../physics/states/playerState";
+import { JumpData, NewJump, SuccessfulJumpData } from "../../physics/tests/jumpMovement";
+import { NewSims } from "../../physics/sims/nextSim";
+import { SimulationData } from "../../physics/sims/nextSim";
+
+const sleep = promisify(setTimeout);
 
 // We are going to store wanted movements by movement objects themselves, NOT just the inputs for them.
 // Reasoning? Deep cloning is homo + I want to encapsulate all of the simulations since right now I'm breaking everything.
-//
-
-const sleep = promisify(setTimeout);
 export class PathContext {
     public readonly physics: Physics;
     public readonly bot: Bot;
-    // public readonly state: PlayerState
     public readonly movementData: MovementData;
     public moves: NewJump[];
-    // public readonly sim: NewSims
 
     public pathing = false;
 
@@ -37,7 +34,7 @@ export class PathContext {
     }
 
     private findBlocks(source: Vec3, goal: Vec3): Vec3[] {
-        const src = source.floored().offset(0, -1, 0);
+        const src = source.floored().translate(0, -1, 0);
         const blocks = this.bot
             .findBlocks({
                 matching: (b: Block) => {
@@ -45,7 +42,7 @@ export class PathContext {
                     const xzdist = b.position.xzDistanceTo(src);
                     return (
                         xzdist <= 8 &&
-                        xzdist >= 2 &&
+                        // xzdist >= 2 &&
                         ydist <= 1 &&
                         // ydist > -8 &&
                         !b.name.includes("air") &&
@@ -63,7 +60,7 @@ export class PathContext {
         return blocks;
     }
 
-    async evaluate(shit: [goal: Vec3, jump: NewJump]): Promise<[jump: NewJump, data: fuk]> {
+    async evaluate(shit: [goal: Vec3, jump: NewJump]): Promise<[jump: NewJump, data: JumpData]> {
         return [shit[1], await shit[1].checkValidity(true)];
     }
 
@@ -74,23 +71,26 @@ export class PathContext {
         const state = new PlayerState(this.physics, this.bot);
         const goalReached = NewSims.getReached(goal);
 
-        //!goalReached(state) &&
-        while (this.pathing) {
+        while (!goalReached(state) && this.pathing) {
             const time = performance.now();
             const blocks = this.findBlocks(state.position, goal);
             const jumps = blocks.map((b) => [b, new NewJump(this.physics, state.clone(), b)] as [goal: Vec3, jump: NewJump]);
-            let results = await Promise.all(jumps.map(this.evaluate));
-            results = results
-                .filter((sim) => sim[1].success)
-                .sort((a, b) => a[0].closeToDest.distanceTo(goal) - b[0].closeToDest.distanceTo(goal));
-            console.log("finished checking.", performance.now() - time, "ms.", results.length);
+            const res = await Promise.all(jumps.map(this.evaluate));
+            let results = res.filter((sim) => sim[1].success) as [jump: NewJump, data: SuccessfulJumpData][];
+            results = results.sort((a, b) => {
+                const atmp = (NewJump.maxJumpTicks / a[1].data.movements.length()) * a[0].closeToDest.distanceTo(goal);
+                const btmp = (NewJump.maxJumpTicks / b[1].data.movements.length()) * b[0].closeToDest.distanceTo(goal);
+                return atmp - btmp;
+            });
 
-            if (results[0] && results[0][1].success) {
-                console.log(results[0][1].type); //, results[0][1].data.movements)
-                await results[0][0].commitJump(this.bot);
-                state.update(this.bot);
+            const final = results[0];
+            console.log("finished checking.", performance.now() - time, "ms.", results.length);
+            if (final && final[1].success) {
+                console.log(final[1].type); //, results[0][1].data.movements)
+                await final[0].commitJump(this.bot);
+                // state.update(this.bot);
             } else {
-                this.bot.chat("Invalid result: " + results[0]?.toString());
+                this.bot.chat("Invalid result: " + final[0]?.closeToDest.toString());
                 break;
             }
             await sleep(0);
@@ -103,7 +103,7 @@ export class PathContext {
         // const pathGoal = ttarget.position.clone();
 
         const state = new PlayerState(this.physics, this.bot);
-        const moves: [jump: NewJump, data: fuk][] = [];
+        const moves: [jump: NewJump, data: JumpData][] = [];
         let tickCount = 0;
 
         const goalReached = NewSims.getReached(goal);
@@ -112,33 +112,34 @@ export class PathContext {
 
             const time = performance.now();
             const jumps: [goal: Vec3, jump: NewJump][] = blocks.map((b) => [b, new NewJump(this.physics, state.clone(), b)]);
-            let results = await Promise.all(jumps.map(this.evaluate));
-            results = results.filter((sim) => sim[1].success) as [
-                jump: NewJump,
-                data: { success: true; type?: string; data: SimulationData }
-            ][];
-            results = results.sort((a, b) => a[0].closeToDest.distanceTo(goal) - b[0].closeToDest.distanceTo(goal));
+            const res = await Promise.all(jumps.map(this.evaluate));
+            let results = res.filter((sim) => sim[1].success) as [jump: NewJump, data: SuccessfulJumpData][];
+            results = results.sort((a, b) => {
+                const atmp = (NewJump.maxJumpTicks / a[1].data.movements.length()) * a[0].closeToDest.distanceTo(goal);
+                const btmp = (NewJump.maxJumpTicks / b[1].data.movements.length()) * b[0].closeToDest.distanceTo(goal);
+                return atmp - btmp;
+            });
 
             console.log("finished checking.", performance.now() - time, "ms.", results.length);
 
-            const res = results[0];
-            if (!res) {
+            const final = results[0];
+            if (!final) {
                 this.bot.chat("couldn't find block.");
                 break;
             }
-            if (!res[1].success) {
+            if (!final[1].success) {
                 this.bot.chat("No valid jump to block.");
                 break;
             }
-            moves.push(res);
-            state.merge(res[1].data.state);
-            // await sleep(0)
+            moves.push(final);
+            state.merge(final[1].data.state);
+            await sleep(0);
         }
 
         return moves;
     }
 
-    async doPath(goal: Vec3, ...moves: [jump: NewJump, data: fuk][]) {
+    async doPath(goal: Vec3, ...moves: [jump: NewJump, data: JumpData][]) {
         const res = (bot: Bot) => {
             const delta = bot.entity.position.minus(goal);
             return (
@@ -154,7 +155,7 @@ export class PathContext {
                 console.log(move[1].type);
                 await NewSims.applyToBot(this.bot, this.physics, move[1].data.movements);
                 // await move[0].commitJump(this.bot);
-                console.log("now outside: state:", move[0].sim.state.position, "bot:", this.bot.entity.position)
+                console.log("now outside: state:", move[0].sim.state.position, "bot:", this.bot.entity.position);
             } else {
                 this.bot.chat("No more moves.");
                 break;

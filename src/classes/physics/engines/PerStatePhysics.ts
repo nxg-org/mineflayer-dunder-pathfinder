@@ -10,10 +10,9 @@ import { PlayerControls } from "../../player/playerControls";
 import { Block } from "prismarine-block";
 import { NormalizedEnchant } from "prismarine-item";
 import { makeSupportFeature } from "../extras/physicsUtils";
-import { PlayerState } from "../extras/playerState";
+import { PlayerState } from "../states/playerState";
 import { Physics } from "./physics";
 import { IPhysicsAdditions, PhysicsAdditions } from "../extras/physicsAdditions";
-
 
 export class PerStatePhysics extends Physics {
     protected extras: PhysicsAdditions;
@@ -223,7 +222,7 @@ export class PerStatePhysics extends Physics {
 
         // Update flags
         this.setPositionToBB(playerBB, pos);
-        state.sneakCollision = dx !== oldOldVelX || dz !== oldOldVelZ
+        state.sneakCollision = dx !== oldOldVelX || dz !== oldOldVelZ;
         state.isCollidedHorizontally = dx !== oldVelX || dz !== oldVelZ;
         state.isCollidedVertically = dy !== oldVelY;
         state.onGround = state.isCollidedVertically && oldVelY < 0;

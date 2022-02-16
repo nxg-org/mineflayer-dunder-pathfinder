@@ -7,6 +7,7 @@ import { CheapEffects, CheapEnchantments, CheapPhysics } from "../engines/cheapP
 import { isEntityUsingItem } from "../extras/physicsUtils";
 import * as nbt from "prismarine-nbt";
 import { PlayerPoses } from "../extras/entityDimensions";
+import { PlayerState } from "./playerState";
 
 export interface CheapPhysicsBuilder {
     position: Vec3;
@@ -109,6 +110,17 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
         ).updateFromEntity(entity);
     }
 
+    public static CREATE_FROM_PLAYER_STATE(ctx: CheapPhysics, state: PlayerState): CheapPlayerState {
+        return new CheapPlayerState(
+            ctx,
+            state.position.clone(),
+            state.velocity.clone(),
+            state.controlState.clone(),
+            state.yaw,
+            state.pitch
+        ).updateFromRaw(state)
+    }
+
     /**
      * Slightly different from the other two, use a pre-built object (assuming cloned) material.
      * @param ctx CheapPhysics instance.
@@ -116,7 +128,7 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
      * @returns CheapPhysicsState
      */
     public static CREATE_RAW(ctx: CheapPhysics, raw: CheapPhysicsBuilder) {
-        return new CheapPlayerState(ctx, raw.position, raw.velocity, raw.controlState, raw.yaw, raw.pitch)
+        return new CheapPlayerState(ctx, raw.position, raw.velocity, raw.controlState, raw.yaw, raw.pitch);
     }
 
     public updateFromBot(bot: Bot): CheapPlayerState {
@@ -171,7 +183,7 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
         return this;
     }
 
-    public updateRaw(other: CheapPhysicsBuilder) {
+    public updateFromRaw(other: CheapPhysicsBuilder) {
         this.onGround = other.onGround ?? this.onGround;
         this.sneakCollision = other.sneakCollision ?? this.sneakCollision;
         this.isUsingItem = other.isUsingItem ?? this.isUsingItem;
@@ -279,11 +291,15 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
             for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
                 const block = this.ctx.world.getBlock(cursor);
                 if (block) {
-                    const blockPos = block.position;
-                    for (const shape of block.shapes) {
-                        const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-                        blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
-                        surroundingBBs.push(blockBB);
+                    if (block instanceof AABB) {
+                        surroundingBBs.push(block);
+                    } else {
+                        const blockPos = block.position;
+                        for (const shape of block.shapes) {
+                            const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                            blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                            surroundingBBs.push(blockBB);
+                        }
                     }
                 }
             }
@@ -300,11 +316,15 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
                 for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
                     const block = this.ctx.world.getBlock(cursor);
                     if (block) {
-                        const blockPos = block.position;
-                        for (const shape of block.shapes) {
-                            const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-                            blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
-                            surroundingBBs.push(blockBB);
+                        if (block instanceof AABB) {
+                            surroundingBBs.push(block);
+                        } else {
+                            const blockPos = block.position;
+                            for (const shape of block.shapes) {
+                                const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                                blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                                surroundingBBs.push(blockBB);
+                            }
                         }
                     }
                 }

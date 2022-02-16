@@ -8,12 +8,15 @@ import { wrapDegrees } from "../../../utils/util";
 import { MovementData, MovementTarget } from "../../movement/movementData";
 import { PathNode } from "../../nodes/node";
 import { ControlStateHandler, PlayerControls } from "../../player/playerControls";
+import { CheapPhysics } from "../engines/cheapPhysics";
 import { Physics } from "../engines/physics";
 import { getBetweenRectangle } from "../extras/physicsUtils";
+import { CheapPlayerState } from "../states/cheapState";
 import { PlayerState } from "../states/playerState";
+import { BaseWorld } from "../worlds/baseWorld";
 
-type SimulationGoal = (state: PlayerState) => boolean;
-type OnGoalReachFunction = (state: PlayerState) => void;
+type SimulationGoal = (state: CheapPlayerState) => boolean;
+type OnGoalReachFunction = (state: CheapPlayerState) => void;
 type Controller = (...any: any[]) => void;
 
 const ZERO = (0 * Math.PI) / 12;
@@ -42,37 +45,35 @@ const TWENTY_TWO_PI_OVER_TWELVE = (22 * Math.PI) / 12;
 const TWENTY_THREE_PI_OVER_TWELVE = (23 * Math.PI) / 12;
 const TWENTY_FOUR_PI_OVER_TWELVE = (24 * Math.PI) / 12;
 
-export type SimulationData = { state: PlayerState; movements: MovementData };
+export type CheapSimulationData = { state: CheapPlayerState; movements: MovementData };
 
 /**
  * To be used once per movement.
  *
  * Provide state that will serve as a base. The state itself will not be modified/consumed unless called for.
  */
-export class NewSims {
-    public world: any; /*prismarine-world*/
-
-    public readonly orgState: PlayerState;
+export class CheapSim {
+    public readonly state: CheapPlayerState;
+    public readonly orgState: CheapPlayerState;
     public readonly orgData: MovementData;
-    public readonly state: PlayerState;
     public data: MovementData;
 
-    constructor(public readonly physics: Physics, state: PlayerState, wanted: MovementData | number = 0) {
+    constructor(public readonly physics: CheapPhysics, state: CheapPlayerState, wanted: MovementData | number = 0) {
         this.state = state;
         this.orgState = this.state.clone();
         this.data = wanted instanceof MovementData ? wanted : MovementData.DEFAULT(wanted);
         this.orgData = this.data.clone();
     }
 
-    public clone(): NewSims {
-        return new NewSims(this.physics, this.state.clone(), this.data.clone());
+    public clone(): CheapSim {
+        return new CheapSim(this.physics, this.state.clone(), this.data.clone());
     }
 
-    public cloneNoData(startTick: number): NewSims {
-        return new NewSims(this.physics, this.state.clone(), startTick);
+    public cloneNoData(startTick: number): CheapSim {
+        return new CheapSim(this.physics, this.state.clone(), startTick);
     }
 
-    public update(state: PlayerState, data?: MovementData) {
+    public update(state: CheapPlayerState, data?: MovementData) {
         this.state.merge(state);
     }
 
@@ -86,7 +87,7 @@ export class NewSims {
         onGoalReach: OnGoalReachFunction,
         controller: Controller,
         ticks = 1
-    ): Promise<SimulationData> {
+    ): Promise<CheapSimulationData> {
         const offset = this.data.maxInputTime;
         let lastInput = this.data.inputsByTicks[offset]
         let lastTarget = this.data.targetsByTicks[offset];
@@ -130,8 +131,6 @@ export class NewSims {
                 " 0 0 0 0 1";
             // // console.log(msg);
             // this.state.bot.chat(msg);
-     
-            if (this.state.isInLava) break;
             this.physics.simulatePlayer(this.state);
 
        
@@ -141,7 +140,7 @@ export class NewSims {
         return { state: this.state, movements: this.data };
     }
 
-    async applyToState(state: PlayerState, controls: MovementData): Promise<PlayerState> {
+    async applyToState(state: CheapPlayerState, controls: MovementData): Promise<CheapPlayerState> {
         const maxTime = controls.maxInputTime;
         // console.log(controls, "controls")
         // console.log(maxTime, this.data.length(), this.data.length() == 0 ? this.data.inputStatesAndTimes : "has stuff");
@@ -155,15 +154,14 @@ export class NewSims {
             }
             // console.log("moving state on tick:", i, "with", this.data.maxInputTime - i, "moves left.", this.data.inputStatesAndTimes[i])
             this.physics.simulatePlayer(state);
-            if (state.isInLava) return state;
         }
 
         return state;
     }
 
-    static async applyToBot(bot: Bot, physics: Physics, controls: MovementData) {
+    static async applyToBot(bot: Bot, physics: CheapPhysics, controls: MovementData): Promise<CheapPlayerState> {
         // bot.physicsEnabled = false
-        const state = new PlayerState(physics, bot);
+        const state = CheapPlayerState.CREATE_FROM_BOT(physics, bot);
         const maxTime = controls.maxInputTime;
         for (let i = controls.minInputTime; i <= maxTime; i++) {
             const tmp = controls.inputsByTicks[i];
@@ -173,24 +171,17 @@ export class NewSims {
                 state.yaw = tmp1.yaw;
                 state.pitch = tmp1.pitch;
             }
-            // if (state.controlState.jump) {
-            //     bot.chat("want jump on " + i)
-            // }
 
-            physics.simulatePlayer(state)
-            state.apply(bot)
-
-            // console.log(bot.entity.position)
-            if (state.isInLava) break;
+            physics.simulatePlayer(state).applyToBot(bot)
             await bot.waitForTicks(1);
-            // await bot.waitForTicks(1)
         }
         // bot.physicsEnabled = true
         console.log("state:", state.position, "bot:", bot.entity.position)
+        return state
     }
 
-    async applyToBot(bot: Bot, controls: MovementData): Promise<PlayerState> {
-        const state = new PlayerState(this.physics, bot);
+    async applyToBot(bot: Bot, controls: MovementData): Promise<CheapPlayerState> {
+        const state = CheapPlayerState.CREATE_FROM_BOT(this.physics, bot);
 
         const maxTime = controls.maxInputTime;
         for (let i = controls.minInputTime; i <= maxTime; i++) {
@@ -202,16 +193,15 @@ export class NewSims {
                 state.pitch = tmp1.pitch;
             }
 
-            this.physics.simulatePlayer(state).apply(bot);
+            this.physics.simulatePlayer(state).applyToBot(bot);
 
             // console.log(bot.entity.position)
-            if (state.isInLava) return state;
             await bot.waitForTicks(1);
         }
         return state;
     }
 
-    async simulateUntilNextTick(): Promise<SimulationData> {
+    async simulateUntilNextTick(): Promise<CheapSimulationData> {
         return await this.simulateUntil(
             () => false,
             () => {},
@@ -220,9 +210,16 @@ export class NewSims {
         );
     }
 
-    async simulateUntilOnGround(ticks = 5): Promise<SimulationData> {
+    /**
+     * 
+     * @param {Vec3} Block Block position.
+     * @param {number} ticks Ticks to wait until end simulation.
+     * @returns {Promise<CheapSimulationData>}
+     */
+    async simulateUntilOnTarget(goalBlock: Vec3, ticks = 5): Promise<CheapSimulationData> {
+        let goalBB = AABB.fromBlock(goalBlock);
         return await this.simulateUntil(
-            (state) => state.onGround,
+            (state) => goalBB.intersects(state.getAABB().expandTowards(state.velocity)),
             () => {},
             () => {},
             ticks
@@ -230,18 +227,18 @@ export class NewSims {
     }
 
     simulateLookAtTarget(goal: Vec3) {
-        NewSims.getControllerStraightAim(goal)(this.state);
+        CheapSim.getControllerStraightAim(goal)(this.state);
     }
 
-    async simulateSmartAim(goal: Vec3, sprint: boolean, jump: boolean, jumpAfter = 0, ticks = 20): Promise<SimulationData> {
+    async simulateSmartAim(goal: Vec3, sprint: boolean, jump: boolean, jumpAfter = 0, ticks = 20): Promise<CheapSimulationData> {
         return await this.simulateUntil(
-            NewSims.getReached(goal),
-            NewSims.getCleanupPosition(goal),
-            NewSims.buildFullController(
-                NewSims.getControllerStraightAim(goal),
-                NewSims.getControllerStrafeAim(goal),
-                NewSims.getControllerSmartMovement(goal, sprint),
-                NewSims.getControllerJumpSprint(jump, sprint, jumpAfter)
+            CheapSim.getReached(goal),
+            CheapSim.getCleanupPosition(goal),
+            CheapSim.buildFullController(
+                CheapSim.getControllerStraightAim(goal),
+                CheapSim.getControllerStrafeAim(goal),
+                CheapSim.getControllerSmartMovement(goal, sprint),
+                CheapSim.getControllerJumpSprint(jump, sprint, jumpAfter)
             ),
             ticks
         );
@@ -250,14 +247,14 @@ export class NewSims {
     /**
      * Assume we know the correct back-up position.
      */
-    async simulateBackUpBeforeJump(goal: Vec3, sprint: boolean, strafe = true, ticks = 20): Promise<SimulationData> {
-        const aim = strafe ? NewSims.getControllerStrafeAim(goal) : NewSims.getControllerStraightAim(goal);
+    async simulateBackUpBeforeJump(goal: Vec3, sprint: boolean, strafe = true, ticks = 20): Promise<CheapSimulationData> {
+        const aim = strafe ? CheapSim.getControllerStrafeAim(goal) : CheapSim.getControllerStraightAim(goal);
         return await this.simulateUntil(
             (state) => state.position.xzDistanceTo(goal) < 0.1,
-            NewSims.getCleanupPosition(goal),
-            NewSims.buildFullController(
+            CheapSim.getCleanupPosition(goal),
+            CheapSim.buildFullController(
                 aim,
-                NewSims.getControllerSmartMovement(goal, sprint),
+                CheapSim.getControllerSmartMovement(goal, sprint),
                 (state: PlayerState, ticks: number) => {
                     state.controlState.sprint = false;
                     state.controlState.sneak = true;
@@ -267,16 +264,16 @@ export class NewSims {
         );
     }
 
-    simulateJumpFromEdgeOfBlock(srcAABBs: AABB[], goalCorner: Vec3, goalBlock: Vec3, sprint: boolean, ticks = 20): Promise<SimulationData> {
+    simulateJumpFromEdgeOfBlock(srcAABBs: AABB[], goalCorner: Vec3, goalBlock: Vec3, sprint: boolean, ticks = 20): Promise<CheapSimulationData> {
         let jump = false;
         let changed = false;
         return this.simulateUntil(
-            NewSims.getReached(goalCorner),
-            NewSims.getCleanupPosition(goalCorner),
-            NewSims.buildFullController(
-                NewSims.getControllerStraightAim(goalCorner),
-                NewSims.getControllerStrafeAim(goalCorner),
-                NewSims.getControllerSmartMovement(goalCorner, sprint),
+            CheapSim.getReached(goalCorner),
+            CheapSim.getCleanupPosition(goalCorner),
+            CheapSim.buildFullController(
+                CheapSim.getControllerStraightAim(goalCorner),
+                CheapSim.getControllerStrafeAim(goalCorner),
+                CheapSim.getControllerSmartMovement(goalCorner, sprint),
                 (state: PlayerState, ticks: number, offset: number) => {
                     state.controlState.sneak = false;
                     // check if player is leaving src block collision
@@ -299,14 +296,14 @@ export class NewSims {
     }
 
     static getReached(...path: Vec3[]): SimulationGoal {
-        return (state: PlayerState) => {
+        return (state: CheapPlayerState) => {
             const delta = path[0].minus(state.position);
-            return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1 && (state.onGround || state.isInWater);
+            return Math.abs(delta.x) <= 0.1 && Math.abs(delta.z) <= 0.1 && Math.abs(delta.y) < 1;
         };
     }
 
     static getCleanupPosition(...path: Vec3[]): OnGoalReachFunction {
-        return (state: PlayerState) => {
+        return (state: CheapPlayerState) => {
             state.clearControlStates();
         };
     }

@@ -1,14 +1,14 @@
 import { Bot } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { BetterBlockPos } from "../blocks/betterBlockPos";
-import { BlockInfo } from "../blocks/blockInfo";
-import { MovementInfo } from "../movement/movementsInfo";
-import { MovementData } from "../movement/movementData";
-import { PathNode } from "../nodes/node";
-import { PlayerState } from "../physics/playerState";
-import { CostInfo } from "../player/costCalculator";
-import { PlayerControls } from "../player/playerControls";
+import { BetterBlockPos } from "../../blocks/betterBlockPos";
+import { BlockInfo } from "../../blocks/blockInfo";
+import { MovementInfo } from "../../movement/movementsInfo";
+import { MovementData } from "../../movement/movementData";
+import { PathNode } from "../../nodes/node";
+import { PlayerState } from "../../physics/states/playerState";
+import { CostInfo } from "../../player/costCalculator";
+import { PlayerControls } from "../../player/playerControls";
 
 export interface IContext {
     bot: Bot;

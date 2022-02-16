@@ -1,8 +1,8 @@
 import { Bot, ControlState, ControlStateStatus } from "mineflayer";
 import { Vec3 } from "vec3";
-import { IContext } from "../path/PathContext";
+import { IContext } from "../path/baritone/PathContext";
 import { MathUtils } from "@nxg-org/mineflayer-util-plugin";
-import { PlayerState } from "../physics/playerState";
+import { PlayerState } from "../physics/states/playerState";
 import { MovementTarget } from "../movement/movementData";
 
 export class ControlStateHandler implements ControlStateStatus {

@@ -7,6 +7,8 @@ import { CheapPhysicsSettings } from "../extras/cheapSettings";
 import { Vec3 } from "vec3";
 import { AABB } from "@nxg-org/mineflayer-util-plugin";
 import { CheapPlayerState } from "../states/cheapState";
+import { BaseWorld } from "../worlds/baseWorld";
+import { Physics } from "./physics";
 
 type CheapEffectNames = keyof ReturnType<typeof getStatusEffectNamesForVersion>;
 type CheapEnchantmentNames = keyof ReturnType<typeof getEnchantmentNamesForVersion>;
@@ -40,7 +42,7 @@ export enum CheapEnchantments {
 export class CheapPhysics {
     public static settings = CheapPhysicsSettings;
     public data: md.IndexedData;
-    public world: any /* prismarine-world */;
+    public world: BaseWorld /* prismarine-world */;
     public movementSpeedAttribute: any;
     public readonly statusEffectNames: { [type in CheapEffects]: string };
     public readonly enchantmentNames: { [type in CheapEnchantments]: string };
@@ -67,6 +69,12 @@ export class CheapPhysics {
             this.enchantmentNames[ind as CheapEnchantments] = tmp1[key as CheapEnchantmentNames];
         }
     }
+
+
+    public static FROM_PHYSICS(physics: Physics) {
+        return new CheapPhysics(physics.data, physics.world);
+    }
+    
 
     getEffectLevel(wantedEffect: CheapEffects, effects: Effect[]) {
         const effectDescriptor = this.data.effectsByName[this.statusEffectNames[wantedEffect]];
@@ -107,11 +115,15 @@ export class CheapPhysics {
                 for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
                     const block = this.world.getBlock(cursor);
                     if (block) {
-                        const blockPos = block.position;
-                        for (const shape of block.shapes) {
-                            const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-                            blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
-                            surroundingBBs.push(blockBB);
+                        if (block instanceof AABB) {
+                            surroundingBBs.push(block);
+                        } else {
+                            const blockPos = block.position;
+                            for (const shape of block.shapes) {
+                                const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                                blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                                surroundingBBs.push(blockBB);
+                            }
                         }
                     }
                 }
@@ -198,12 +210,20 @@ export class CheapPhysics {
             if (state.onGround) {
                 // should I leave this in? I guess, why not.
                 const blockBelow = this.world.getBlock(state.position.floored().offset(0, -0.5, 0));
-                vel.y =
-                    CheapPhysicsSettings.jumpHeight *
-                    (blockBelow && blockBelow.type === this.honeyblockId ? CheapPhysicsSettings.honeyblockJumpSpeed : 1);
-                if (state.jumpBoost > 0) {
-                    vel.y += 0.1 * state.jumpBoost;
+                if (blockBelow) {
+                    if (blockBelow instanceof AABB) {
+                        vel.y = CheapPhysicsSettings.jumpHeight;
+                    } else {
+                        vel.y =
+                            CheapPhysicsSettings.jumpHeight *
+                            (blockBelow && blockBelow.type === this.honeyblockId ? CheapPhysicsSettings.honeyblockJumpSpeed : 1);
+                    }
+
+                    if (state.jumpBoost > 0) {
+                        vel.y += 0.1 * state.jumpBoost;
+                    }
                 }
+
                 if (state.controlState.sprint) {
                     const yaw = Math.PI - state.yaw;
                     vel.x -= Math.sin(yaw) * 0.2;

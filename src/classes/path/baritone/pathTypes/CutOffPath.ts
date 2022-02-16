@@ -1,6 +1,6 @@
-import { BetterBlockPos } from "../../blocks/betterBlockPos";
-import { BaseGoal } from "../../goals";
-import { BaseMovement } from "../../movement/movement";
+import { BetterBlockPos } from "../../../blocks/betterBlockPos";
+import { BaseGoal } from "../../../goals";
+import { BaseMovement } from "../../../movement/movement";
 import { IPath } from "./IPath";
 import { PathBase } from "./PathBase";
 

@@ -12,9 +12,10 @@ import {
     makeSupportFeature,
     whichHandIsEntityUsing,
     whichHandIsEntityUsingBoolean,
-} from "./physicsUtils";
+} from "../extras/physicsUtils";
 // import { bot.entity } from "prismarine-entity";
 import md from "minecraft-data";
+import { CheapPhysicsBuilder } from "./cheapState";
 
  //0: STANDING, 1: FALL_FLYING, 2: SLEEPING, 3: SWIMMING, 4: SPIN_ATTACK, 5: SNEAKING, 6: LONG_JUMPING, 7: DYING
 export enum PlayerPoses {
@@ -82,7 +83,7 @@ export class EntityDimensions {
  *
  * I will eventually split this code into PlayerState and bot.entityState, where bot.entityState contains fewer controls.
  */
-export class PlayerState {
+export class PlayerState implements CheapPhysicsBuilder {
     public readonly bot: Bot; // needed to clone.
     public position: Vec3;
     public velocity: Vec3;
@@ -347,8 +348,53 @@ export class PlayerState {
         );
     }
 
-    public getUnderlyingBlockAABBs(aabb?: AABB): AABB[] {
-        //.expand(2e-1, 0, 2e-1)
-        return this.ctx.getSurroundingBBs(aabb ?? this.getAABB());
+    public getUnderlyingBlockBBs() {
+        const queryBB = this.getAABB();
+        const surroundingBBs = [];
+        const cursor = new Vec3(0, Math.floor(queryBB.minY) - 0.251, 0);
+        for (cursor.z = Math.floor(queryBB.minZ); cursor.z <= Math.floor(queryBB.maxZ); cursor.z++) {
+            for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
+                const block = this.ctx.world.getBlock(cursor);
+                if (block) {
+                    if (block instanceof AABB) {
+                        surroundingBBs.push(block);
+                    } else {
+                        const blockPos = block.position;
+                        for (const shape of block.shapes) {
+                            const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                            blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                            surroundingBBs.push(blockBB);
+                        }
+                    }
+                }
+            }
+        }
+        return surroundingBBs;
+    }
+
+    public getSurroundingBBs(): AABB[] {
+        const queryBB = this.getAABB();
+        const surroundingBBs = [];
+        const cursor = new Vec3(0, 0, 0);
+        for (cursor.y = Math.floor(queryBB.minY) - 1; cursor.y <= Math.floor(queryBB.maxY); cursor.y++) {
+            for (cursor.z = Math.floor(queryBB.minZ); cursor.z <= Math.floor(queryBB.maxZ); cursor.z++) {
+                for (cursor.x = Math.floor(queryBB.minX); cursor.x <= Math.floor(queryBB.maxX); cursor.x++) {
+                    const block = this.ctx.world.getBlock(cursor);
+                    if (block) {
+                        if (block instanceof AABB) {
+                            surroundingBBs.push(block);
+                        } else {
+                            const blockPos = block.position;
+                            for (const shape of block.shapes) {
+                                const blockBB = new AABB(shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+                                blockBB.offset(blockPos.x, blockPos.y, blockPos.z);
+                                surroundingBBs.push(blockBB);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return surroundingBBs;
     }
 }

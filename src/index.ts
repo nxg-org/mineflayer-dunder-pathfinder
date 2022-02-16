@@ -3,7 +3,7 @@ import { BlockInfo } from "./classes/blocks/blockInfo";
 import { Pathfinder } from "./tests/pathfinder";
 import { PathfinderBuilder } from "./wrapper";
 import tracker from "@nxg-org/mineflayer-tracker"
-import { PlayerPoses } from "./classes/physics/playerState";
+import { PlayerPoses } from "./classes/physics/states/playerState";
 import { Entity } from "prismarine-entity";
 
 

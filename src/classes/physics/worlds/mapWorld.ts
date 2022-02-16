@@ -98,13 +98,18 @@ export class MapWorld implements BaseWorld {
         return this.internal.get(hash(x0, y0, z0, x1, y1, z1)) ?? null;
     }
 
-    public getIntersectingAABB(other: AABB): AABB | null {
+    /**
+     * Push to provided array.
+     * @param other 
+     * @param results 
+     */
+    public getIntersectingAABB(other: AABB, results: AABB[] = []): AABB[] {
         for (const aabb of this.internal.values()) {
             if (aabb.intersects(other)) {
-                return aabb;
+                results.push(aabb)
             }
         }
-        return null;
+        return results;
     }
 
     public hasAABBThatIntesects(other: AABB): boolean {

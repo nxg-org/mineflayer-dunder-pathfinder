@@ -9,7 +9,7 @@ import * as nbt from "prismarine-nbt";
 import { PlayerPoses } from "../extras/entityDimensions";
 import { PlayerState } from "./playerState";
 
-export interface CheapPhysicsBuilder {
+export interface CheapPlayerStateBuilder {
     position: Vec3;
     velocity: Vec3;
     pitch: number;
@@ -34,7 +34,7 @@ export interface CheapPhysicsBuilder {
     depthStrider?: number;
 }
 
-export class CheapPlayerState implements CheapPhysicsBuilder {
+export class CheapPlayerState implements CheapPlayerStateBuilder {
     // public isInWater: boolean;
     // public isInLava: boolean;
     // public isInWeb: boolean;
@@ -127,7 +127,7 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
      * @param raw CONSUMEABLE, build this with clones.
      * @returns CheapPhysicsState
      */
-    public static CREATE_RAW(ctx: CheapPhysics, raw: CheapPhysicsBuilder) {
+    public static CREATE_RAW(ctx: CheapPhysics, raw: CheapPlayerStateBuilder) {
         return new CheapPlayerState(ctx, raw.position, raw.velocity, raw.controlState, raw.yaw, raw.pitch);
     }
 
@@ -183,7 +183,7 @@ export class CheapPlayerState implements CheapPhysicsBuilder {
         return this;
     }
 
-    public updateFromRaw(other: CheapPhysicsBuilder) {
+    public updateFromRaw(other: CheapPlayerStateBuilder) {
         this.onGround = other.onGround ?? this.onGround;
         this.sneakCollision = other.sneakCollision ?? this.sneakCollision;
         this.isUsingItem = other.isUsingItem ?? this.isUsingItem;

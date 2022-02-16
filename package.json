@@ -23,7 +23,7 @@
         "dev": "npx ts-node-dev src/example.ts",
         "test": "npx ts-node src/example.ts",
         "start": "node --trace-warnings lib/example.js",
-        "physics": "npx ts-node src/classes/physics/tests/newNewTest.ts"
+        "physics": "npx ts-node src/classes/physics/tests/test.ts"
     },
     "dependencies": {
         "@nxg-org/mineflayer-common-sense": "^1.0.2",

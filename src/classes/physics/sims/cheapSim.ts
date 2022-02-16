@@ -82,6 +82,32 @@ export class CheapSim {
         this.data = this.orgData.clone();
     }
 
+    
+    /**
+     * My only use-case rn is to get a position. so I'll just return position.
+     * @param goal 
+     * @param controller 
+     * @param ticks 
+     * @returns 
+     */
+    async *simulateGenerator(goal: SimulationGoal, controls: MovementData) {
+        const maxTime = controls.maxInputTime;
+        // console.log(controls, "controls")
+        // console.log(maxTime, this.data.length(), this.data.length() == 0 ? this.data.inputStatesAndTimes : "has stuff");
+        for (let i = controls.minInputTime; i <= maxTime; i++) {
+            const tmp = controls.inputsByTicks[i];
+            if (tmp) this.state.controlState = tmp.clone();
+            const tmp1 = controls.targetsByTicks[i];
+            if (tmp1) {
+                this.state.yaw = tmp1.yaw;
+                this.state.pitch = tmp1.pitch;
+            }
+            // console.log("moving state on tick:", i, "with", this.data.maxInputTime - i, "moves left.", this.data.inputStatesAndTimes[i])
+            this.physics.simulatePlayer(this.state);
+            yield this.state.position.clone();
+        }
+    }
+
     async simulateUntil(
         goal: SimulationGoal,
         onGoalReach: OnGoalReachFunction,
@@ -89,16 +115,15 @@ export class CheapSim {
         ticks = 1
     ): Promise<CheapSimulationData> {
         const offset = this.data.maxInputTime;
-        let lastInput = this.data.inputsByTicks[offset]
+        let lastInput = this.data.inputsByTicks[offset];
         let lastTarget = this.data.targetsByTicks[offset];
         for (let i = offset; i <= ticks + offset; i++) {
-
             if (goal(this.state)) {
                 // onGoalReach(this.state);
                 // this.data.maxInputOffset = i + 1;
                 // this.data.maxInputTime = this.data.minInputTime + i + 1
-                this.data.setInputs(i , this.state.controlState.clone());
-                this.data.setTargetObj(i , new MovementTarget(this.state.yaw, this.state.pitch, true))
+                this.data.setInputs(i, this.state.controlState.clone());
+                this.data.setTargetObj(i, new MovementTarget(this.state.yaw, this.state.pitch, true));
                 this.physics.simulatePlayer(this.state);
                 break;
             }
@@ -117,7 +142,6 @@ export class CheapSim {
                 this.data.setTargetObj(i, lastTarget);
             }
 
-
             // if (i % 10 == 0)
             const msg =
                 "/particle " +
@@ -132,10 +156,6 @@ export class CheapSim {
             // // console.log(msg);
             // this.state.bot.chat(msg);
             this.physics.simulatePlayer(this.state);
-
-       
-
-          
         }
         return { state: this.state, movements: this.data };
     }
@@ -172,12 +192,12 @@ export class CheapSim {
                 state.pitch = tmp1.pitch;
             }
 
-            physics.simulatePlayer(state).applyToBot(bot)
+            physics.simulatePlayer(state).applyToBot(bot);
             await bot.waitForTicks(1);
         }
         // bot.physicsEnabled = true
-        console.log("state:", state.position, "bot:", bot.entity.position)
-        return state
+        console.log("state:", state.position, "bot:", bot.entity.position);
+        return state;
     }
 
     async applyToBot(bot: Bot, controls: MovementData): Promise<CheapPlayerState> {
@@ -211,7 +231,7 @@ export class CheapSim {
     }
 
     /**
-     * 
+     *
      * @param {Vec3} Block Block position.
      * @param {number} ticks Ticks to wait until end simulation.
      * @returns {Promise<CheapSimulationData>}
@@ -252,19 +272,21 @@ export class CheapSim {
         return await this.simulateUntil(
             (state) => state.position.xzDistanceTo(goal) < 0.1,
             CheapSim.getCleanupPosition(goal),
-            CheapSim.buildFullController(
-                aim,
-                CheapSim.getControllerSmartMovement(goal, sprint),
-                (state: PlayerState, ticks: number) => {
-                    state.controlState.sprint = false;
-                    state.controlState.sneak = true;
-                }
-            ),
+            CheapSim.buildFullController(aim, CheapSim.getControllerSmartMovement(goal, sprint), (state: PlayerState, ticks: number) => {
+                state.controlState.sprint = false;
+                state.controlState.sneak = true;
+            }),
             ticks
         );
     }
 
-    simulateJumpFromEdgeOfBlock(srcAABBs: AABB[], goalCorner: Vec3, goalBlock: Vec3, sprint: boolean, ticks = 20): Promise<CheapSimulationData> {
+    simulateJumpFromEdgeOfBlock(
+        srcAABBs: AABB[],
+        goalCorner: Vec3,
+        goalBlock: Vec3,
+        sprint: boolean,
+        ticks = 20
+    ): Promise<CheapSimulationData> {
         let jump = false;
         let changed = false;
         return this.simulateUntil(

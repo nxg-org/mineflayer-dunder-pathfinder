@@ -1,4 +1,5 @@
 import { AABB, AABBUtils } from "@nxg-org/mineflayer-util-plugin";
+import { FindBlockOptions } from "mineflayer";
 import { Block } from "prismarine-block";
 import { Vec3 } from "vec3";
 
@@ -27,4 +28,8 @@ export function calculateBlockCenter(world: any, pos: {x: number, y: number, z: 
             pos.y + yDiff,
             pos.z + zDiff
     );
+}
+
+export function fasterGetBlocks(options: FindBlockOptions) {
+    
 }

@@ -78,7 +78,6 @@ bot.loadPlugin(utilPlugin);
 bot.loadPlugin(tracker);
 bot.loadPlugin(commonSense)
 
-// bot.commonSense.autoRespond = true
 
 let physics: PerStatePhysics;
 let data: md.IndexedData;
@@ -95,6 +94,8 @@ bot.once("spawn", () => {
         customCollisionsOnly: false,
     });
     bot.physics.yawSpeed = 20
+    // bot.commonSense.autoRespond = bot.game.gameMode == 'survival' || bot.game.gameMode == 'adventure'
+
     // (bot.physics as any) = physics
     // (bot.pathfinder as any).enablePathShortcut = true
 

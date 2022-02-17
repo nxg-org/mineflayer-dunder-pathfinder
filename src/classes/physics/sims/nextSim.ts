@@ -92,6 +92,7 @@ export class NewSims {
         let lastTarget = this.data.targetsByTicks[offset];
         for (let i = offset; i <= ticks + offset; i++) {
 
+
             if (goal(this.state)) {
                 // onGoalReach(this.state);
                 // this.data.maxInputOffset = i + 1;
@@ -101,6 +102,8 @@ export class NewSims {
                 this.physics.simulatePlayer(this.state);
                 break;
             }
+
+        
 
             controller(this.state, i, offset);
 
@@ -118,21 +121,24 @@ export class NewSims {
 
 
             // if (i % 10 == 0)
-            const msg =
-                "/particle " +
-                "flame" +
-                " " +
-                this.state.position.x.toFixed(4) +
-                " " +
-                this.state.position.y.toFixed(4) +
-                " " +
-                this.state.position.z.toFixed(4) +
-                " 0 0 0 0 1";
-            // // console.log(msg);
+            // const msg =
+            //     "/particle " +
+            //     "flame" +
+            //     " " +
+            //     this.state.position.x.toFixed(4) +
+            //     " " +
+            //     this.state.position.y.toFixed(4) +
+            //     " " +
+            //     this.state.position.z.toFixed(4) +
+            //     " 0 0 0 0 1";
+            // // // console.log(msg);
             // this.state.bot.chat(msg);
-     
+
             if (this.state.isInLava) break;
             this.physics.simulatePlayer(this.state);
+
+          
+     
 
        
 

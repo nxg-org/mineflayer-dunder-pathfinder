@@ -18,7 +18,7 @@ export type CheckedJumpData = { checked: false } | { checked: true; result: Jump
 export type AllJumpData = { [name in JumpNames]: CheckedJumpData };
 
 export class NewJump {
-    public static maxJumpTicks: number = 90;
+    public static maxJumpTicks: number = 30;
     public readonly state: PlayerState;
     public readonly sim: NewSims;
     public readonly srcAABBs: AABB[];

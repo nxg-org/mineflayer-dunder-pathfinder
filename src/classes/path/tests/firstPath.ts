@@ -8,6 +8,7 @@ import { PlayerState } from "../../physics/states/playerState";
 import { JumpData, NewJump, SuccessfulJumpData } from "../../physics/tests/jumpMovement";
 import { NewSims } from "../../physics/sims/nextSim";
 import { SimulationData } from "../../physics/sims/nextSim";
+import { fasterGetBlocks } from "../../../utils/blockUtils";
 
 const sleep = promisify(setTimeout);
 
@@ -33,30 +34,49 @@ export class PathContext {
         this.moves = [];
     }
 
+    // private findBlocks(source: Vec3, goal: Vec3) {
+    //     const src = source.floored().offset(0, -1, 0);
+    //     let blocks = fasterGetBlocks(this.bot, this.physics.data.blocksByName.air.id, {
+    //         maxDistance: 16,
+    //         point: src,
+    //         count: 1000,
+    //         exclude: true,
+    //     });
+
+    //     const blockSet = new Set(blocks.map((b) => b.toString()));
+
+    //     blocks = blocks.filter((b) => !blockSet.has(b.offset(0, 1, 0).toString()) && !blockSet.has(b.offset(0, 2, 0).toString()));
+    //     blocks = blocks.filter((b) => b.xzDistanceTo(src) <= 16 && b.y - src.y <= 1);
+    //     blocks = blocks.sort((a, b) => a.distanceTo(goal) - b.distanceTo(goal));
+    //     return blocks;
+    // }
+
     private findBlocks(source: Vec3, goal: Vec3): Vec3[] {
         const src = source.floored().offset(0, -1, 0);
-        const blocks = this.bot
+        let blocks = this.bot
             .findBlocks({
-                matching: (b: Block) => {
-                    const ydist = b.position.minus(src).y;
-                    const xzdist = b.position.xzDistanceTo(src);
-                    return (
-                        xzdist <= 8 &&
-                        // xzdist >= 2 &&
-                        ydist <= 1 &&
-                        // ydist > -8 &&
-                        !b.name.includes("air") &&
-                        goal.distanceTo(b.position) < goal.distanceTo(src)
-                    );
-                },
-                maxDistance: 100,
-                useExtraInfo: true,
+                matching: (b: Block) => b.type != this.physics.data.blocksByName.air.id,
+                maxDistance: 16,
                 count: 1000,
                 point: source,
-            })
-            .filter((b) => this.bot.blockAt(b.offset(0, 1, 0))?.name === "air" && this.bot.blockAt(b.offset(0, 2, 0))?.name === "air")
-            .sort((a, b) => a.distanceTo(goal) - b.distanceTo(goal)); //.slice(0, 10);
+            });
 
+        const blockSet = new Set(blocks.map((b) => b.toString()));
+        blocks = blocks.filter((b) => !blockSet.has(b.offset(0, 1, 0).toString()) && !blockSet.has(b.offset(0, 2, 0).toString()));
+        blocks = blocks.filter((b) => b.xzDistanceTo(src) <= 16 && b.y - src.y <= 1);
+        if (blocks.length === 0) {
+            blocks = this.bot
+            .findBlocks({
+                matching: (b: Block) => b.type != this.physics.data.blocksByName.air.id,
+                maxDistance: 16,
+                count: 1000,
+                point: goal,
+            });
+        }
+        const blockSet1 = new Set(blocks.map((b) => b.toString()));
+        blocks = blocks.filter((b) => !blockSet1.has(b.offset(0, 1, 0).toString()) && !blockSet1.has(b.offset(0, 2, 0).toString()));
+        blocks = blocks.filter((b) => b.xzDistanceTo(src) <= 16 && b.y - src.y <= 1);
+        blocks = blocks.sort((a, b) => a.distanceTo(goal) - b.distanceTo(goal));
         return blocks;
     }
 
@@ -81,8 +101,8 @@ export class PathContext {
             //(NewJump.maxJumpTicks / a[1].data.movements.length()) *
             //(NewJump.maxJumpTicks / b[1].data.movements.length()) *
             results = results.sort((a, b) => {
-                const atmp =  a[0].closeToDest.distanceTo(goal);
-                const btmp =  b[0].closeToDest.distanceTo(goal);
+                const atmp = a[0].closeToDest.distanceTo(goal);
+                const btmp = b[0].closeToDest.distanceTo(goal);
                 return atmp - btmp;
             });
 
@@ -107,21 +127,26 @@ export class PathContext {
 
         const state = new PlayerState(this.physics, this.bot);
         const moves: [jump: NewJump, data: JumpData][] = [];
-        let tickCount = 0;
 
-        const goalReached = NewSims.getReached(goal);
+        const goalReached = (state: PlayerState) => {
+            const delta = state.position.minus(goal);
+            return Math.abs(delta.x) <= 0.35 && Math.abs(delta.z) <= 0.35 && Math.abs(delta.y) < 1;
+        };
+
+        // const goalReached = NewSims.getReached(goal);
         while (!goalReached(state) && this.pathing) {
             const blocks = this.findBlocks(state.position, goal);
 
             const time = performance.now();
             const jumps: [goal: Vec3, jump: NewJump][] = blocks.map((b) => [b, new NewJump(this.physics, state.clone(), b)]);
             const res = await Promise.all(jumps.map(this.evaluate));
+
             let results = res.filter((sim) => sim[1].success) as [jump: NewJump, data: SuccessfulJumpData][];
-           //(NewJump.maxJumpTicks / a[1].data.movements.length()) *
+            //(NewJump.maxJumpTicks / a[1].data.movements.length()) *
             //(NewJump.maxJumpTicks / b[1].data.movements.length()) *
             results = results.sort((a, b) => {
-                const atmp =  a[0].closeToDest.distanceTo(goal);
-                const btmp =  b[0].closeToDest.distanceTo(goal);
+                const atmp = a[0].closeToDest.distanceTo(goal);
+                const btmp = b[0].closeToDest.distanceTo(goal);
                 return atmp - btmp;
             });
 
@@ -136,6 +161,7 @@ export class PathContext {
                 this.bot.chat("No valid jump to block.");
                 break;
             }
+            console.log("wanted jump:", final[0].goalBlock, "from:", final[0].closeToSrc);
             moves.push(final);
             state.merge(final[1].data.state);
             await sleep(0);

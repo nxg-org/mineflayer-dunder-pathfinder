@@ -54,9 +54,14 @@ export class OctahedronIterator {
     [Symbol.iterator]() {
         return {
             next: () => ({
-                value: this.next(),
+                value: this.next()!,
                 done: this.apothem > this.maxDistance,
             }),
         };
     }
 }
+
+// let i = 0;
+// for (const val of new OctahedronIterator(new Vec3(0, 0, 0), 16)) {
+//     console.log(val, i++);
+// }

@@ -95,11 +95,6 @@ bot.once("spawn", () => {
     });
     bot.physics.yawSpeed = 20
     // bot.commonSense.autoRespond = bot.game.gameMode == 'survival' || bot.game.gameMode == 'adventure'
-
-    // (bot.physics as any) = physics
-    // (bot.pathfinder as any).enablePathShortcut = true
-
-    // bot.physics.yawSpeed = 20;
 });
 
 let pathContext: PathContext;

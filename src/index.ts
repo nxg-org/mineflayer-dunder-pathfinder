@@ -46,7 +46,7 @@ declare module "mineflayer" {
     interface Bot {
         newPather: Pathfinder
         pose: PlayerPoses,
-        blockAt(point: Vec3, useExtraInfo: boolean): Block | null
+        // blockAt(point: Vec3, useExtraInfo: boolean): Block | null
     }
 
     interface BotEvents {

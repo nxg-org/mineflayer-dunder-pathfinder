@@ -1,12 +1,11 @@
 import { AABB, AABBUtils } from "@nxg-org/mineflayer-util-plugin";
 import { Bot, FindBlockOptions } from "mineflayer";
-import { Block } from "prismarine-block";
+import BrokenImport, { loader, Block } from "prismarine-block";
 import { Vec3 } from "vec3";
 import { OctahedronIterator } from "../classes/iterators/Octahedron";
-import BrokenImport from "prismarine-block"
+
 
 const IBlock: typeof Block = (BrokenImport as any)("1.17.1")
-console.log(IBlock)
 
 export function getAllBlocksAlongParabolicTrajectory(pos: Vec3, dir: Vec3, strength: number) {
     const playerAABB = new AABB(pos.x - 0.3, pos.y, pos.z - 0.3, pos.x + 0.3, pos.y + 1.8, pos.z + 0.3);
@@ -30,7 +29,7 @@ export function calculateBlockCenter(world: any, pos: { x: number; y: number; z:
     return new Vec3(pos.x + xDiff, pos.y + yDiff, pos.z + zDiff);
 }
 
-function getMatchingFunction(matching: FindBlockOptions["matching"], exclude: boolean) {
+export function getMatchingFunction(matching: FindBlockOptions["matching"], exclude: boolean) {
     if (typeof matching !== "function") {
         if (!Array.isArray(matching)) {
             matching = [matching];
@@ -44,7 +43,7 @@ function getMatchingFunction(matching: FindBlockOptions["matching"], exclude: bo
     }
 }
 
-function isBlockInSection (section: { palette: any; }, matcher: (arg0: Block) => any) {
+export function isBlockInSection (section: { palette: any; }, matcher: (arg0: Block) => any) {
     if (!section) return false // section is empty, skip it (yay!)
     // If the chunk use a palette we can speed up the search by first
     // checking the palette which usually contains less than 20 ids
@@ -119,6 +118,5 @@ export function fasterGetBlocks(
     if (blocks.length > count) {
         blocks = blocks.slice(0, count);
     }
-    console.log(IBlock.fromStateId(8, 0))
     return blocks;
 }

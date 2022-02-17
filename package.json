@@ -31,6 +31,7 @@
         "@nxg-org/mineflayer-util-plugin": "^1.4.0",
         "@ungap/structured-clone": "^0.3.4",
         "denque": "^2.0.1",
+        "flatmap": "^0.0.3",
         "minecraft-data": "^2.113.0",
         "mineflayer": "^4.0.0",
         "mineflayer-pathfinder": "^1.9.1",
@@ -40,6 +41,7 @@
         "prismarine-physics": "^1.4.0",
         "prismarine-registry": "^1.1.0",
         "prismarine-viewer": "^1.21.0",
+        "range": "^0.0.3",
         "vec3": "^0.1.7"
     },
     "devDependencies": {

@@ -33,7 +33,7 @@
         "denque": "^2.0.1",
         "flatmap": "^0.0.3",
         "minecraft-data": "^2.113.0",
-        "mineflayer": "^4.0.0",
+        "mineflayer": "^4.1.0",
         "mineflayer-pathfinder": "^1.9.1",
         "prismarine-block": "^1.13.1",
         "prismarine-entity": "^2.0.0",

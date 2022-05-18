@@ -10,4 +10,4 @@ I'm not sure how many features I should include in CheapPhysics.ts (src/classes/
 Right now, there's one tick of block collision detection (allowing an initial jump) and then nothing.
 I'll have to look into it, but I think I need block collision to predict player inputs (another project in the works).
 
-Well, not much else to do for tonight. I'm logging off, cya fuckers.
+Well, not much else to do for tonight. I'm logging off, cya fuckers.# mineflayer-alpha-pather

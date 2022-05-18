@@ -2,7 +2,8 @@ import { AABB, AABBUtils } from "@nxg-org/mineflayer-util-plugin";
 import { Bot, FindBlockOptions } from "mineflayer";
 import BrokenImport, { loader, Block } from "prismarine-block";
 import { Vec3 } from "vec3";
-import { OctahedronIterator } from "../classes/iterators/Octahedron";
+import { iterators } from "prismarine-world";
+const {OctahedronIterator} = iterators
 
 
 const IBlock: typeof Block = (BrokenImport as any)("1.17.1")

@@ -13,8 +13,8 @@ export abstract class BaseMovement {
     private state: MovementData;
     public cost: number;
 
-    public readonly toBreak: BlockInteraction[];
-    public readonly toPlace: BlockInteraction[];
+    // public readonly toBreak: BlockInteraction[];
+    // public readonly toPlace: BlockInteraction[];
 
     protected validPositionsCached?: Set<BetterBlockPos>;
     protected toBreakCached?: BetterBlockPos[];
@@ -24,12 +24,12 @@ export abstract class BaseMovement {
         ctx: PathContext,
         public readonly src: PathNode,
         public readonly dest: BetterBlockPos,
-        toBreak: BetterBlockPos[],
-        toPlace: BetterBlockPos[]
+        public readonly toBreak: BetterBlockPos[],
+        public readonly toPlace: BetterBlockPos[]
     ) {
         this.ctx = ctx;
-        this.toBreak = toBreak.map(b => new BlockInteraction(IBlockType.BREAK, b));
-        this.toPlace = toBreak.map(b => new BlockInteraction(IBlockType.PLACE, b));
+        // this.toBreak = toBreak.map(b => new BlockInteraction(IBlockType.BREAK, b));
+        // this.toPlace = toBreak.map(b => new BlockInteraction(IBlockType.PLACE, b));
         this.cost = MAX_COST;
         this.state = MovementData.DEFAULT(this.ctx.currentTick);
     }
@@ -62,7 +62,7 @@ export abstract class BaseMovement {
         // await this.ctx.bot.look(this.state.target.yaw, this.state.target.pitch, this.state.target.forceRotations);
         for (let ind = this.state.minInputTime; ind <= this.state.maxInputTime; ind++) {
             if (this.state.inputsByTicks[ind]) {
-                this.state.inputsByTicks[ind].apply(this.ctx);
+                this.state.inputsByTicks[ind].applyControls(this.ctx.bot);
             }
             const tmp = this.state.targetsByTicks[ind];
             if (tmp) {

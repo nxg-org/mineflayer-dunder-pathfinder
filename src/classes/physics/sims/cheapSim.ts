@@ -104,7 +104,7 @@ export class CheapSim {
             }
             // console.log("moving state on tick:", i, "with", this.data.maxInputTime - i, "moves left.", this.data.inputStatesAndTimes[i])
             this.physics.simulatePlayer(this.state);
-            yield this.state.position.clone();
+            yield goal(this.state);
         }
     }
 

@@ -3,6 +3,7 @@ import { BetterBlockPos } from "../blocks/betterBlockPos";
 import { PathNode } from "../nodes/node";
 import { PathCalculationResult, PathType } from "../path/baritone/PathResult";
 import { IPath } from "../path/baritone/pathTypes/IPath";
+import { Path } from "../path/baritone/pathTypes/Path";
 
 /**
  * Any pathfinding algorithm that keeps track of nodes recursively by their cost (e.g. A*, dijkstra)
@@ -26,9 +27,9 @@ export abstract class AbstractNodeCostSearch {
      */
     private map: Map<number, PathNode>;
 
-    protected startNode: PathNode;
+    protected startNode!: PathNode;
 
-    protected mostRecentConsidered: PathNode;
+    protected mostRecentConsidered!: PathNode;
 
     protected bestSoFar: PathNode[] = Array<PathNode>();
 
@@ -116,7 +117,7 @@ export abstract class AbstractNodeCostSearch {
         }
     }
 
-    protected abstract  calculate0(primaryTimeout: number, failureTimeout: number): any//Optional<IPath>;
+    protected abstract  calculate0(primaryTimeout: number, failureTimeout: number): IPath | undefined;
 
     /**
      * Determines the distance squared from the specified node to the start
@@ -156,65 +157,64 @@ export abstract class AbstractNodeCostSearch {
     }
 
     public pathToMostRecentNodeConsidered(): IPath | undefined {
-        return new Path(this.startNode, this.mostRecentConsidered, 0, this.goal, this.context) // .map(node -> new Path(startNode, node, 0, goal, context));
+        return new Path(this.worldContext, this.startNode, this.mostRecentConsidered, 0, this.goal, this.context) // .map(node -> new Path(startNode, node, 0, goal, context));
     }
 
-    @Override
-    public Optional<IPath> bestPathSoFar() {
-        return bestSoFar(false, 0);
+    public bestPathSoFar(): IPath | undefined {
+        return this.getBestSoFar(false, 0);
     }
 
-    protected Optional<IPath> bestSoFar(boolean logInfo, int numNodes) {
-        if (startNode == null) {
-            return Optional.empty();
+    protected getBestSoFar(logInfo: boolean, numNodes: number): IPath | undefined {
+        if (this.startNode == null) {
+            return undefined;
         }
-        double bestDist = 0;
-        for (int i = 0; i < COEFFICIENTS.length; i++) {
-            if (bestSoFar[i] == null) {
+        let bestDist = 0;
+        for (let i = 0; i < AbstractNodeCostSearch.COEFFICIENTS.length; i++) {
+            if (this.bestSoFar[i] == null) {
                 continue;
             }
-            double dist = getDistFromStartSq(bestSoFar[i]);
+            let dist = this.getDistFromStartSq(this.bestSoFar[i]);
             if (dist > bestDist) {
                 bestDist = dist;
             }
-            if (dist > MIN_DIST_PATH * MIN_DIST_PATH) { // square the comparison since distFromStartSq is squared
+            if (dist > AbstractNodeCostSearch.MIN_DIST_PATH * AbstractNodeCostSearch.MIN_DIST_PATH) { // square the comparison since distFromStartSq is squared
                 if (logInfo) {
-                    if (COEFFICIENTS[i] >= 3) {
-                        System.out.println("Warning: cost coefficient is greater than three! Probably means that");
-                        System.out.println("the path I found is pretty terrible (like sneak-bridging for dozens of blocks)");
-                        System.out.println("But I'm going to do it anyway, because yolo");
+                    if (AbstractNodeCostSearch.COEFFICIENTS[i] >= 3) {
+                        console.log("Warning: cost coefficient is greater than three! Probably means that");
+                        console.log("the path I found is pretty terrible (like sneak-bridging for dozens of blocks)");
+                        console.log("But I'm going to do it anyway, because yolo");
                     }
-                    System.out.println("Path goes for " + Math.sqrt(dist) + " blocks");
-                    logDebug("A* cost coefficient " + COEFFICIENTS[i]);
+                    console.log("Path goes for " + Math.sqrt(dist) + " blocks");
+                    // logDebug("A* cost coefficient " + AbstractNodeCostSearch.COEFFICIENTS[i]);
                 }
-                return Optional.of(new Path(startNode, bestSoFar[i], numNodes, goal, context));
+                return new Path(this.worldContext, this.startNode, this.bestSoFar[i], numNodes, this.goal, this.context);
             }
         }
         // instead of returning bestSoFar[0], be less misleading
         // if it actually won't find any path, don't make them think it will by rendering a dark blue that will never actually happen
         if (logInfo) {
-            logDebug("Even with a cost coefficient of " + COEFFICIENTS[COEFFICIENTS.length - 1] + ", I couldn't get more than " + Math.sqrt(bestDist) + " blocks");
-            logDebug("No path found =(");
-            logNotification("No path found =(", true);
+            console.log("Even with a cost coefficient of " + AbstractNodeCostSearch.COEFFICIENTS[AbstractNodeCostSearch.COEFFICIENTS.length - 1] + ", I couldn't get more than " + Math.sqrt(bestDist) + " blocks");
+            console.log("No path found =(");
+            console.log("No path found =(", true);
         }
-        return Optional.empty();
+        return undefined;
     }
 
-    @Override
-    public final boolean isFinished() {
-        return isFinished;
+
+    public getIsFinished(): boolean {
+        return this.isFinished;
     }
 
-    @Override
-    public final Goal getGoal() {
-        return goal;
+  
+    public  getGoal(): BaseGoal {
+        return this.goal;
     }
 
-    public BetterBlockPos getStart() {
-        return new BetterBlockPos(startX, startY, startZ);
+    public getStart():  BetterBlockPos  {
+        return new BetterBlockPos(this.worldContext, this.startX, this.startY, this.startZ);
     }
 
-    protected int mapSize() {
-        return map.size();
+    protected mapSize(): number {
+        return this.map.size;
     }
 }

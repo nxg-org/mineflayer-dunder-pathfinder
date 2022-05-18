@@ -107,7 +107,7 @@ export class EntityGoalPredictive extends BaseGoal {
         return this.predictiveFunction(
             this.target.position.minus(this.bot.entity.position),
             this.target.position,
-            this.bot.tracker.getEntitySpeed(this.target)
+            this.bot.tracker.getEntitySpeed(this.target) ?? new Vec3(0, 0, 0)
         );
     }
 

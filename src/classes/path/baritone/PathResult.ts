@@ -1,3 +1,5 @@
+import { IPath } from "./pathTypes/IPath";
+
 export enum PathType {
     SUCCESS_TO_GOAL,
     SUCCESS_SEGMENT,

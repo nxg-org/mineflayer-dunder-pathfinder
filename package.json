@@ -28,7 +28,7 @@
     "dependencies": {
         "@nxg-org/mineflayer-tracker": "^1.2.0",
         "denque": "^2.0.1",
-        "mineflayer": "^4.3.0",
+        "mineflayer": "^4.4.0",
         "vec3": "^0.1.7"
     },
     "devDependencies": {
